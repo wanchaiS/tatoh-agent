@@ -1,54 +1,137 @@
-"""LangGraph single-node graph template.
+# Step 1: Define tools and model
 
-Returns a predefined response. Replace logic and configuration as needed.
-"""
+from langchain.tools import tool
+from langchain_openai import ChatOpenAI
 
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Any, Dict
-
-from langgraph.graph import StateGraph
-from langgraph.runtime import Runtime
-from typing_extensions import TypedDict
+model = ChatOpenAI(
+    model_name="gpt-4o-mini",
+    temperature=0
+)
 
 
-class Context(TypedDict):
-    """Context parameters for the agent.
+# Define tools
+@tool
+def multiply(a: int, b: int) -> int:
+    """Multiply `a` and `b`.
 
-    Set these when creating assistants OR when invoking the graph.
-    See: https://langchain-ai.github.io/langgraph/cloud/how-tos/configuration_cloud/
+    Args:
+        a: First int
+        b: Second int
     """
+    return a * b
 
-    my_configurable_param: str
 
+@tool
+def add(a: int, b: int) -> int:
+    """Adds `a` and `b`.
 
-@dataclass
-class State:
-    """Input state for the agent.
-
-    Defines the initial structure of incoming data.
-    See: https://langchain-ai.github.io/langgraph/concepts/low_level/#state
+    Args:
+        a: First int
+        b: Second int
     """
+    return a + b
 
-    changeme: str = "example"
 
+@tool
+def divide(a: int, b: int) -> float:
+    """Divide `a` and `b`.
 
-async def call_model(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
-    """Process input and returns output.
-
-    Can use runtime context to alter behavior.
+    Args:
+        a: First int
+        b: Second int
     """
+    return a / b
+
+
+# Augment the LLM with tools
+tools = [add, multiply, divide]
+tools_by_name = {tool.name: tool for tool in tools}
+model_with_tools = model.bind_tools(tools)
+
+# Step 2: Define state
+
+from langchain.messages import AnyMessage
+from typing_extensions import TypedDict, Annotated
+import operator
+
+
+class MessagesState(TypedDict):
+    messages: Annotated[list[AnyMessage], operator.add]
+    llm_calls: int
+
+# Step 3: Define model node
+from langchain.messages import SystemMessage
+
+
+def llm_call(state: dict):
+    """LLM decides whether to call a tool or not"""
+
     return {
-        "changeme": "output from call_model. "
-        f"Configured with {(runtime.context or {}).get('my_configurable_param')}"
+        "messages": [
+            model_with_tools.invoke(
+                [
+                    SystemMessage(
+                        content="You are a helpful assistant tasked with performing arithmetic on a set of inputs."
+                    )
+                ]
+                + state["messages"]
+            )
+        ],
+        "llm_calls": state.get('llm_calls', 0) + 1
     }
 
 
-# Define the graph
-graph = (
-    StateGraph(State, context_schema=Context)
-    .add_node(call_model)
-    .add_edge("__start__", "call_model")
-    .compile(name="New Graph")
+# Step 4: Define tool node
+
+from langchain.messages import ToolMessage
+
+
+def tool_node(state: dict):
+    """Performs the tool call"""
+
+    result = []
+    for tool_call in state["messages"][-1].tool_calls:
+        tool = tools_by_name[tool_call["name"]]
+        observation = tool.invoke(tool_call["args"])
+        result.append(ToolMessage(content=observation, tool_call_id=tool_call["id"]))
+    return {"messages": result}
+
+# Step 5: Define logic to determine whether to end
+
+from typing import Literal
+from langgraph.graph import StateGraph, START, END
+
+
+# Conditional edge function to route to the tool node or end based upon whether the LLM made a tool call
+def should_continue(state: MessagesState) -> Literal["tool_node", END]:
+    """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
+
+    messages = state["messages"]
+    last_message = messages[-1]
+
+    # If the LLM makes a tool call, then perform an action
+    if last_message.tool_calls:
+        return "tool_node"
+
+    # Otherwise, we stop (reply to the user)
+    return END
+
+# Step 6: Build agent
+
+# Build workflow
+graph = StateGraph(MessagesState)
+
+# Add nodes
+graph.add_node("llm_call", llm_call)
+graph.add_node("tool_node", tool_node)
+
+# Add edges to connect nodes
+graph.add_edge(START, "llm_call")
+graph.add_conditional_edges(
+    "llm_call",
+    should_continue,
+    ["tool_node", END]
 )
+graph.add_edge("tool_node", "llm_call")
+
+graph = graph.compile()
