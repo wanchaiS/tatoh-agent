@@ -1,137 +1,74 @@
-# Step 1: Define tools and model
-
-from langchain.tools import tool
 from langchain_openai import ChatOpenAI
+from agent.tools.check_room_availability import check_room_availability
+from langchain_core.messages import SystemMessage
+from langgraph.graph import StateGraph, START, MessagesState
+from langgraph.prebuilt import ToolNode, tools_condition
+from datetime import datetime
 
+# Define the model and tools
 model = ChatOpenAI(
     model_name="gpt-4o-mini",
     temperature=0
 )
 
-
-# Define tools
-@tool
-def multiply(a: int, b: int) -> int:
-    """Multiply `a` and `b`.
-
-    Args:
-        a: First int
-        b: Second int
-    """
-    return a * b
-
-
-@tool
-def add(a: int, b: int) -> int:
-    """Adds `a` and `b`.
-
-    Args:
-        a: First int
-        b: Second int
-    """
-    return a + b
-
-
-@tool
-def divide(a: int, b: int) -> float:
-    """Divide `a` and `b`.
-
-    Args:
-        a: First int
-        b: Second int
-    """
-    return a / b
-
-
-# Augment the LLM with tools
-tools = [add, multiply, divide]
-tools_by_name = {tool.name: tool for tool in tools}
+tools = [check_room_availability]
 model_with_tools = model.bind_tools(tools)
 
-# Step 2: Define state
+# Define the state (inherited from MessagesState)
+class AgentGlobalState(MessagesState):
+    """Global state for the agent including chat history."""
+    pass
 
-from langchain.messages import AnyMessage
-from typing_extensions import TypedDict, Annotated
-import operator
+def main_agent(state: AgentGlobalState):
+    """Main agent node that handles the conversation logic."""
+    
+    system_prompt = SystemMessage(
+        content="""You are a helpful assistant for TATOH hotel. Help guests check room availability.
 
+## Core Behavior
 
-class MessagesState(TypedDict):
-    messages: Annotated[list[AnyMessage], operator.add]
-    llm_calls: int
+- Be conversational and warm
+- Keep responses concise unless detail is requested
+- If you need information to use a tool, ask the user naturally
+- After getting tool results, summarize helpfully—don't just dump raw data
 
-# Step 3: Define model node
-from langchain.messages import SystemMessage
+## Booking Flow
+The current date is {current_date}. 
+When a user wants to check availability but hasn't provided dates or guest count, ask for the missing information before calling the tool. Gather what you need in a natural way, not as a checklist.
 
+## When Tools Return No Results
 
-def llm_call(state: dict):
-    """LLM decides whether to call a tool or not"""
-
+Offer alternatives based on tool result or ask if they'd like to adjust their search criteria.""".format(current_date=datetime.now().strftime('%Y-%m-%d'))
+    )
+    
+    # Invoke model
+    response = model_with_tools.invoke([system_prompt] + state["messages"])
+    
     return {
-        "messages": [
-            model_with_tools.invoke(
-                [
-                    SystemMessage(
-                        content="You are a helpful assistant tasked with performing arithmetic on a set of inputs."
-                    )
-                ]
-                + state["messages"]
-            )
-        ],
-        "llm_calls": state.get('llm_calls', 0) + 1
+        "messages": [response],
     }
 
+# Use the prebuilt ToolNode
+tool_node = ToolNode(tools)
 
-# Step 4: Define tool node
-
-from langchain.messages import ToolMessage
-
-
-def tool_node(state: dict):
-    """Performs the tool call"""
-
-    result = []
-    for tool_call in state["messages"][-1].tool_calls:
-        tool = tools_by_name[tool_call["name"]]
-        observation = tool.invoke(tool_call["args"])
-        result.append(ToolMessage(content=observation, tool_call_id=tool_call["id"]))
-    return {"messages": result}
-
-# Step 5: Define logic to determine whether to end
-
-from typing import Literal
-from langgraph.graph import StateGraph, START, END
-
-
-# Conditional edge function to route to the tool node or end based upon whether the LLM made a tool call
-def should_continue(state: MessagesState) -> Literal["tool_node", END]:
-    """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
-
-    messages = state["messages"]
-    last_message = messages[-1]
-
-    # If the LLM makes a tool call, then perform an action
-    if last_message.tool_calls:
-        return "tool_node"
-
-    # Otherwise, we stop (reply to the user)
-    return END
-
-# Step 6: Build agent
-
-# Build workflow
-graph = StateGraph(MessagesState)
+# Build the graph
+workflow = StateGraph(AgentGlobalState)
 
 # Add nodes
-graph.add_node("llm_call", llm_call)
-graph.add_node("tool_node", tool_node)
+workflow.add_node("agent", main_agent)
+workflow.add_node("tools", tool_node)
 
-# Add edges to connect nodes
-graph.add_edge(START, "llm_call")
-graph.add_conditional_edges(
-    "llm_call",
-    should_continue,
-    ["tool_node", END]
+# Set entry point
+workflow.add_edge(START, "agent")
+
+# Add conditional edges from agent to tools or END using the prebuilt tools_condition
+workflow.add_conditional_edges(
+    "agent",
+    tools_condition,
 )
-graph.add_edge("tool_node", "llm_call")
 
-graph = graph.compile()
+# After tools, always go back to the agent for feedback loop
+workflow.add_edge("tools", "agent")
+
+# Compile the graph
+graph = workflow.compile()
