@@ -1,3 +1,4 @@
+import os
 import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Set
@@ -7,8 +8,8 @@ from utils.date_utils import format_date_ranges
 
 @tool
 def check_room_availability(guests: int, checkInDate: str, checkOutDate: str) -> Dict[str, Any]:
-    """Search room availability for a given check-in and check-out date.
-    Returns perfect matches and alternative suggestions if necessary.
+    """
+    Find rooms when guests number, explicit check-in and check-out dates are provided.
 
     Args:
         guests: Number of guests
@@ -42,7 +43,6 @@ def check_room_availability(guests: int, checkInDate: str, checkOutDate: str) ->
                 room_availability_dict[room_no] = {**room_info,"dates": set(dates)}
             else:
                 room_availability_dict[room_no]["dates"].update(dates)
-
     # 2. Load room metadata
     try:
         with open('data/room_list.json', 'r') as f:
@@ -58,7 +58,14 @@ def check_room_availability(guests: int, checkInDate: str, checkOutDate: str) ->
         room_no = room['room_no']
         max_cap = room['max_capacity']
         room_info = room_availability_dict.get(room_no, {})
-        
+        room_info = {**room_info,
+        "price_weekdays": room['price_weekdays'], 
+        "price_weekends": room['price_weekends'],
+        "price_festival": room['price_festival'],
+        "capacity": room['max_capacity'],
+        "dates": list(room_info['dates'])
+        }
+
         # short circuit if room is too small
         if _is_room_too_small(guests, max_cap):
             continue
@@ -75,7 +82,8 @@ def check_room_availability(guests: int, checkInDate: str, checkOutDate: str) ->
             continue
         
         # for simplicity the rest of the rooms we just put them in alternatives
-        alternatives_candidates.append(room_info)
+        if len(room_info['dates']) > 0:
+            alternatives_candidates.append(room_info)
         
     # Filter perfect matches and date_match_with_extension_candidates by least gap within the room type
     perfect_match_rooms = []
@@ -89,9 +97,25 @@ def check_room_availability(guests: int, checkInDate: str, checkOutDate: str) ->
             least_score = min(candidate_score_dict.values())
             for candidate in candidates:
                 if candidate_score_dict[candidate['room_no']] == least_score:
-                    perfect_match_rooms.append({"room_no": candidate['room_no'], "room_type_name": candidate['room_type_name']})
+                    perfect_match_rooms.append({
+                        "room_no": candidate['room_no'], 
+                        "room_type_name": candidate['room_type_name'],
+                        "price_weekdays": candidate.get('price_weekdays'),
+                        "price_weekends": candidate.get('price_weekends'),
+                        "price_festival": candidate.get('price_festival'),
+                        "image_token": f"room_picture_{candidate['room_no']}" if os.path.exists(f"data/room_pictures/{candidate['room_no']}.jpg") else "",
+                        "capacity": candidate.get('capacity')
+                    })
         else:
-            perfect_match_rooms.append({"room_no": candidates[0]['room_no'], "room_type_name": candidates[0]['room_type_name']})
+            perfect_match_rooms.append({
+                "room_no": candidates[0]['room_no'], 
+                "room_type_name": candidates[0]['room_type_name'],
+                "price_weekdays": candidates[0].get('price_weekdays'),
+                "price_weekends": candidates[0].get('price_weekends'),
+                "price_festival": candidates[0].get('price_festival'),
+                "image_token": f"room_picture_{candidates[0]['room_no']}" if os.path.exists(f"data/room_pictures/{candidates[0]['room_no']}.jpg") else "",
+                "capacity": candidates[0].get('capacity')
+            })
             
     grouped_date_match_with_extension_candidates = group_by_room_type(date_match_with_extension_candidates)
     for type_id, candidates in grouped_date_match_with_extension_candidates.items():
@@ -101,13 +125,38 @@ def check_room_availability(guests: int, checkInDate: str, checkOutDate: str) ->
             least_score = min(candidate_score_dict.values())
             for candidate in candidates:
                 if candidate_score_dict[candidate['room_no']] == least_score:
-                    date_match_with_extension_rooms.append({"room_no": candidate['room_no'], "room_type_name": candidate['room_type_name']})
+                    date_match_with_extension_rooms.append({
+                        "room_no": candidate['room_no'], 
+                        "room_type_name": candidate['room_type_name'],
+                        "price_weekdays": candidate.get('price_weekdays'),
+                        "price_weekends": candidate.get('price_weekends'),
+                        "price_festival": candidate.get('price_festival'),
+                        "image_token": f"room_picture_{candidate['room_no']}" if os.path.exists(f"data/room_pictures/{candidate['room_no']}.jpg") else "",
+                        "capacity": candidate.get('capacity') + 1
+                    })
         else:
-            date_match_with_extension_rooms.append({"room_no": candidates[0]['room_no'], "room_type_name": candidates[0]['room_type_name']})
+            date_match_with_extension_rooms.append({
+                "room_no": candidates[0]['room_no'], 
+                "room_type_name": candidates[0]['room_type_name'],
+                "price_weekdays": candidates[0].get('price_weekdays'),
+                "price_weekends": candidates[0].get('price_weekends'),
+                "price_festival": candidates[0].get('price_festival'),
+                "image_token": f"room_picture_{candidates[0]['room_no']}" if os.path.exists(f"data/room_pictures/{candidates[0]['room_no']}.jpg") else "",
+                "capacity": candidates[0].get('capacity') + 1
+            })
     
     alternatives_rooms = []
     for room in alternatives_candidates:
-        alternatives_rooms.append({"room_no": room['room_no'], "room_type_name": room['room_type_name'], "dates": format_date_ranges(room['dates'])})
+        alternatives_rooms.append({
+            "room_no": room['room_no'], 
+            "room_type_name": room['room_type_name'], 
+            "price_weekdays": room.get('price_weekdays'),
+            "price_weekends": room.get('price_weekends'),
+            "price_festival": room.get('price_festival'),
+            "image_token": f"room_picture_{room['room_no']}" if os.path.exists(f"data/room_pictures/{room['room_no']}.jpg") else "",
+            "dates": format_date_ranges(room['dates']),
+            "capacity": room.get('capacity')
+        })
 
     need_alternatives = len(perfect_match_rooms) == 0 and len(date_match_with_extension_rooms) == 0
     need_date_match_with_extension_bed = len(perfect_match_rooms) == 0

@@ -2,15 +2,26 @@ import os
 import time
 import threading
 import requests
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, TypedDict, NotRequired
 from utils.http_client import make_request
+
+# Find the project root (where .env should be)
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_ENV_PATH = os.path.join(_ROOT_DIR, ".env")
+
+# Load environment variables
+if os.path.exists(_ENV_PATH):
+    load_dotenv(_ENV_PATH, override=True)
+else:
+    print(f"PMS Module: .env file not found at {_ENV_PATH}")
 
 # --- Private Module State ---
 # This dictionary is private to this module (prefixed with _)
 _state = {
     "session": requests.Session(),
-    "token": None,
+    "token": os.getenv("PMS_ACCESS_TOKEN"),
     "token_expiry": 0,
     "lock": threading.Lock(),
     "base_url": os.getenv("PMS_BASE_URL", "https://pms-api.hoteliers.guru/api").rstrip("/"),
@@ -19,7 +30,44 @@ _state = {
     "password": os.getenv("PMS_PASSWORD"),
 }
 
+# Initialize session headers if we already have a token
+if _state["token"]:
+    _state["session"].headers.update({
+        "Authorization": f"Bearer {_state['token']}",
+        "Access-Token": _state["token"]
+    })
+else:
+    print("PMS Module: No token found in environment on startup.")
+
 EXPECTED_PMS_VERSION = "1.61"
+
+def _update_env_file(key: str, value: str):
+    """
+    Updates the .env file with the given key-value pair.
+    """
+    if not os.path.exists(_ENV_PATH):
+        print(f"PMS Module: Cannot update token, {_ENV_PATH} not found.")
+        return
+
+    with open(_ENV_PATH, "r") as f:
+        lines = f.readlines()
+
+    updated = False
+    with open(_ENV_PATH, "w") as f:
+        for line in lines:
+            if line.startswith(f"{key}="):
+                f.write(f"{key}={value}\n")
+                updated = True
+            else:
+                f.write(line)
+        if not updated:
+            # Ensure there's a newline if we append
+            if lines and not lines[-1].endswith("\n"):
+                f.write("\n")
+            f.write(f"{key}={value}\n")
+    
+    # Also update current environment
+    os.environ[key] = value
 
 def login():
     """
@@ -49,7 +97,8 @@ def login():
         response.raise_for_status()
         data = response.json()
 
-        _state["token"] = data.get("accessToken")
+        token = data.get("accessToken")
+        _state["token"] = token
         
         # Default expiry to 1 hour if not specified (JWT 'exp' is available in token but we'll use a safe default)
         expires_in = 3600 
@@ -57,9 +106,13 @@ def login():
         
         # Update session headers for all future calls
         _state["session"].headers.update({
-            "Authorization": f"Bearer {_state['token']}",
-            "Access-Token": _state["token"]
+            "Authorization": f"Bearer {token}",
+            "Access-Token": token
         })
+
+        # Persist token to .env
+        if token:
+            _update_env_file("PMS_ACCESS_TOKEN", token)
 
 # --- Public API Functions ---
 
