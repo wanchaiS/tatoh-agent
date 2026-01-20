@@ -160,11 +160,14 @@ def check_room_availability(guests: int, checkInDate: str, checkOutDate: str) ->
 
     need_alternatives = len(perfect_match_rooms) == 0 and len(date_match_with_extension_rooms) == 0
     need_date_match_with_extension_bed = len(perfect_match_rooms) == 0
-    return {
+    
+    raw_data = {
         "perfect_match": perfect_match_rooms,
         "date_matched_but_need_extension_bed": date_match_with_extension_rooms if need_date_match_with_extension_bed else [],
         "alternatives": alternatives_rooms if need_alternatives else []
     }
+
+    return raw_data
 
 def group_by_room_type(candidates: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Groups a list of room numbers by their room_type_id."""

@@ -17,6 +17,8 @@ def get_room_info(room_number: str) -> str:
     
     if file_path.exists():
         with open(file_path, "r", encoding="utf-8") as f:
-            return f.read()
+            content = f.read()
+            
+        return content
     else:
-        return f"Information for room {room_number} (looking for {file_path.name}) not found. Available rooms: S1, S2, ..., V3 etc."
+        return f"ขออภัยค่ะ ข้อมูลห้องพัก {room_number} ยังไม่พร้อมให้บริการในขณะนี้ สามารถสอบถามประเภทอื่นได้นะคะ"
