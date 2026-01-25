@@ -22,12 +22,12 @@ SCOPES = [
 
 # Public API Functions
 
-def get_image_direct_link(filename: str) -> Optional[str]:
+def get_image_direct_link(path: str) -> Optional[str]:
     """
     Finds an image by filename (supports nested paths) and returns a direct link.
     Automatically ensures the file is public.
     """
-    file_info = _find_file_by_path(filename)
+    file_info = _find_file_by_path(path)
     if not file_info:
         return None
     
@@ -36,29 +36,47 @@ def get_image_direct_link(filename: str) -> Optional[str]:
     # Direct content link for Messenger compatibility
     return f"https://lh3.googleusercontent.com/d/{file_id}"
 
-def read_markdown(filename: str) -> str:
+def read_markdown(path: str) -> str:
     """
     Finds a markdown file by filename (supports nested paths) and returns its content.
     """
-    file_info = _find_file_by_path(filename)
+    file_info = _find_file_by_path(path)
     if not file_info:
-        raise FileNotFoundError(f"Markdown file not found on GDrive: {filename}")
+        raise FileNotFoundError(f"Markdown file not found on GDrive: {path}")
     
     return _read(file_info['id'])
 
-def read_spreadsheet_data(filename: str) -> List[Dict]:
+def read_spreadsheet_data(path: str) -> List[Dict]:
     """
     Finds a spreadsheet by filename (supports nested paths) and returns its data as a list of dicts.
     Always reads the first sheet (A:Z range).
     """
-    file_info = _find_file_by_path(filename)
+    file_info = _find_file_by_path(path)
     if not file_info:
-        raise FileNotFoundError(f"Spreadsheet not found on GDrive: {filename}")
+        raise FileNotFoundError(f"Spreadsheet not found on GDrive: {path}")
     
     spreadsheet_id = file_info['id']
     range_name = "A:Z"
     
     return _read_sheet_as_dicts(spreadsheet_id, range_name)
+
+def list_images_in_folder(path: str) -> List[str]:
+    """
+    Lists all images in a GDrive folder and returns their direct links.
+    """
+    folder_info = _find_file_by_path(path)
+    if not folder_info or folder_info['mimeType'] != 'application/vnd.google-apps.folder':
+        return []
+    
+    files = _list_drive_files(folder_id=folder_info['id'])
+    
+    # Filter for images and return direct links
+    image_mimetypes = ['image/jpeg', 'image/png', 'image/webp']
+    return [
+        f"https://lh3.googleusercontent.com/d/{f['id']}" 
+        for f in files 
+        if f.get('mimeType') in image_mimetypes
+    ]
 
 def _get_project_root() -> Path:
     """Finds the project root by searching upwards for a marker file."""

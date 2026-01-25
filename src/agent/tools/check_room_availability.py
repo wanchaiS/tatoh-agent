@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Set
 from langchain.tools import tool
 from utils.pms_client import get_room_availability
-from utils.google_drive_client import read_spreadsheet_data
+from utils.google_drive_client import read_spreadsheet_data, get_image_direct_link
 from utils.date_utils import format_date_ranges
 
 @tool
@@ -27,9 +27,9 @@ def check_room_availability(guests: int, check_in_date: str, check_out_date: str
         check_in_dt = datetime.strptime(check_in_date, '%Y-%m-%d')
         check_out_dt = datetime.strptime(check_out_date, '%Y-%m-%d')
 
-        # 1. Fetch availability from PMS with ±1 day buffer for flexibility
-        fetch_start = check_in_dt - timedelta(days=1)
-        fetch_end = check_out_dt + timedelta(days=1)
+        # 1. Fetch availability from PMS with ±5 day buffer for flexibility
+        fetch_start = check_in_dt - timedelta(days=5)
+        fetch_end = check_out_dt + timedelta(days=5)
             
         api_result = get_room_availability(fetch_start, fetch_end)
         room_availability_dict = api_result.get('rooms', {})
@@ -54,7 +54,7 @@ def check_room_availability(guests: int, check_in_date: str, check_out_date: str
                 "price_weekends": room['price_weekends_holidays'],
                 "price_ny_songkran": room['price_ny_songkran'],
                 "max_guests": int(room['max_guests']),
-                "image_token": f"![room_picture:{room_no}]"
+                "image_token": f"!img[{get_image_direct_link(f'/cooper-project/data/rooms/{room_no}/overview')}]"
             })
 
             # Skip if room is too small
