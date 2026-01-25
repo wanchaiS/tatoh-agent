@@ -1,5 +1,6 @@
 from langchain_openai import ChatOpenAI
 from agent.tools.check_room_availability import check_room_availability
+from agent.tools.find_available_windows import find_available_windows
 from agent.tools.get_room_info import get_room_info
 from langchain_core.messages import SystemMessage
 from langgraph.graph import StateGraph, START, MessagesState, END
@@ -20,7 +21,7 @@ model = ChatOpenAI(
     temperature=0
 )
 
-tools = [check_room_availability, get_room_info]
+tools = [check_room_availability, find_available_windows, get_room_info]
 model_with_tools = model.bind_tools(tools)
 
 # Define the state (inherited from MessagesState)
