@@ -2,6 +2,12 @@ from langchain_openai import ChatOpenAI
 from agent.tools.check_room_availability import check_room_availability
 from agent.tools.find_available_windows import find_available_windows
 from agent.tools.get_room_info import get_room_info
+from agent.tools.find_boat_schedules import find_boat_schedules
+from agent.tools.get_gopro_service_info import get_gopro_service_info
+from agent.tools.get_koh_tao_arrival_guide import get_koh_tao_arrival_guide
+from agent.tools.get_kohtao_season import get_kohtao_season
+from agent.tools.get_room_gallery import get_room_gallery
+from agent.tools.kohtao_current_weather import get_kohtao_weather
 from langchain_core.messages import SystemMessage
 from langgraph.graph import StateGraph, START, MessagesState, END
 from langgraph.prebuilt import ToolNode
@@ -21,7 +27,17 @@ model = ChatOpenAI(
     temperature=0
 )
 
-tools = [check_room_availability, find_available_windows, get_room_info]
+tools = [
+    check_room_availability, 
+    find_available_windows, 
+    get_room_info,
+    find_boat_schedules,
+    get_gopro_service_info,
+    get_koh_tao_arrival_guide,
+    get_kohtao_season,
+    get_room_gallery,
+    get_kohtao_weather
+]
 model_with_tools = model.bind_tools(tools)
 
 # Define the state (inherited from MessagesState)

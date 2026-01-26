@@ -14,45 +14,52 @@ if os.path.exists(_ENV_PATH):
 @tool
 def get_kohtao_weather():
     """
-    Get the current weather for Koh Tao, Thailand.
-    Includes temperature, weather description, humidity, and wind speed.
-    Use this when users ask about the current weather, temperature, or conditions on Koh Tao.
+    Get the REAL-TIME current weather and marine conditions (waves) for Koh Tao, Thailand.
+    Use this ONLY when users ask about the weather RIGHT NOW, today, or "how's the weather" without specifying a future month.
+    Returns raw data including temperature, weather condition, humidity, wind speed, and wave height.
     """
-    api_key = os.getenv("OPEN_WEATHER_API_KEY")
-    if not api_key:
-        return "Weather service is currently unavailable (API key missing)."
+    owm_api_key = os.getenv("OPEN_WEATHER_API_KEY")
+    if not owm_api_key:
+        return {"error": "Weather service API key missing."}
 
     # Koh Tao coordinates
     lat = 10.10
     lon = 99.83
 
-    url = "https://api.openweathermap.org/data/2.5/weather"
-    params = {
+    # 1. Fetch meteorological data from OpenWeatherMap
+    owm_url = "https://api.openweathermap.org/data/2.5/weather"
+    owm_params = {
         "lat": lat,
         "lon": lon,
-        "appid": api_key,
-        "units": "metric"  # For Celsius
+        "appid": owm_api_key,
+        "units": "metric"
+    }
+
+    # 2. Fetch marine data (waves) from Open-Meteo
+    marine_url = "https://marine-api.open-meteo.com/v1/marine"
+    marine_params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": ["wave_height", "wave_period"]
     }
 
     try:
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        owm_response = requests.get(owm_url, params=owm_params, timeout=10)
+        owm_response.raise_for_status()
+        owm_data = owm_response.json()
 
-        weather_desc = data["weather"][0]["description"].capitalize()
-        temp = data["main"]["temp"]
-        feels_like = data["main"]["feels_like"]
-        humidity = data["main"]["humidity"]
-        wind_speed = data["wind"]["speed"]
+        marine_response = requests.get(marine_url, params=marine_params, timeout=10)
+        marine_response.raise_for_status()
+        marine_data = marine_response.json()
 
         return {
-            "location": "Koh Tao, Thailand",
-            "condition": weather_desc,
-            "temperature": f"{temp}°C",
-            "feels_like": f"{feels_like}°C",
-            "humidity": f"{humidity}%",
-            "wind_speed": f"{wind_speed} m/s",
-            "summary": f"The current weather in Koh Tao is {weather_desc} with a temperature of {temp}°C (feels like {feels_like}°C). Humidity is at {humidity}% and wind speed is {wind_speed} m/s."
+            "location": "Koh Tao",
+            "condition": owm_data["weather"][0]["description"],
+            "temperature": owm_data["main"]["temp"],
+            "humidity": owm_data["main"]["humidity"],
+            "wind_speed_ms": owm_data["wind"]["speed"],
+            "wave_height_m": marine_data.get("current", {}).get("wave_height", 0),
+            "wave_period_s": marine_data.get("current", {}).get("wave_period", 0)
         }
     except Exception as e:
-        return f"Error fetching weather data: {str(e)}"
+        return {"error": f"Failed to fetch weather data: {str(e)}"}
