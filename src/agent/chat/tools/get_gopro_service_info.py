@@ -9,6 +9,6 @@ def get_gopro_service_info():
     Use this when users ask about renting GoPro cameras, GoPro prices, or taking photos underwater.
     """
 
-    details = read_markdown("/cooper-project/data/gopro_service_info")
+    details = read_markdown("/cooper-project/data/gopro_service_info.md")
     image_url = get_image_direct_link("/cooper-project/data/photos/cameras_rental.png")
     return {"details": details, "image_url": image_url}

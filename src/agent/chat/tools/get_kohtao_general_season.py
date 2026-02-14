@@ -3,7 +3,7 @@ from langchain.tools import tool
 
 
 @tool
-def get_kohtao_season():
+def get_kohtao_general_season():
     """
     Get official information about Koh Tao's seasons, weather patterns throughout the year, 
     best times to visit for diving, and monthly climate conditions.

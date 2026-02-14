@@ -12,7 +12,7 @@ if os.path.exists(_ENV_PATH):
     load_dotenv(_ENV_PATH, override=True)
 
 @tool
-def get_kohtao_weather():
+def get_kohtao_current_weather():
     """
     Get the REAL-TIME current weather and marine conditions (waves) for Koh Tao, Thailand.
     Use this ONLY when users ask about the weather RIGHT NOW, today, or "how's the weather" without specifying a future month.
