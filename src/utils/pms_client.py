@@ -118,15 +118,12 @@ def login():
         if token:
             _update_env_file("PMS_ACCESS_TOKEN", token)
 
-def get_room_availability(start_date: datetime, end_date: Optional[datetime] = None) -> Dict[str, Any]:
+def get_room_availability(start_date: datetime, end_date: datetime) -> Dict[str, Any]:
     """
-    Fetches room availability from the PMS starting from the given date.
-    If end_date is provided, it handles fetching multiple 14-day windows automatically.
+    Fetches room availability from the PMS within the given [start_date, end_date) window.
+    It handles fetching multiple 14-day windows automatically to cover the range.
     """
     try:
-        if not end_date:
-            return _fetch_room_availability(start_date)
-
         # Restrict search window to max 31 days
         if (end_date - start_date).days > 31:
             raise ValueError("Search window exceeds the maximum allowed duration of 31 days.")
@@ -147,13 +144,18 @@ def get_room_availability(start_date: datetime, end_date: Optional[datetime] = N
                 else:
                     merged_rooms[room_no]["dates"].update(dates)
 
+        # Generate valid dates within the [start_date, end_date) window
+        num_days = (end_date - start_date).days
+        valid_dates = {(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(num_days)}
+
         # Finalize rooms (convert sets back to sorted lists)
         for room_info in merged_rooms.values():
-            room_info['dates'] = sorted(list(room_info['dates']))
+            filtered_dates = room_info['dates'].intersection(valid_dates)
+            room_info['dates'] = sorted(list(filtered_dates))
 
         return {
-            "from": start_date,
-            "to": end_date,
+            "from": start_date.strftime('%Y-%m-%d'),
+            "to": end_date.strftime('%Y-%m-%d'),
             "rooms": merged_rooms,
         }
 
@@ -209,7 +211,10 @@ def _parse_response(response: Dict[str, Any]) -> Dict[str, Any]:
                 }
 
         # Traverse reservationRoomList to collect reserved dates
+        # Note: PMS returns [] (empty list) instead of {} when there are no reservations
         reservation_room_list = response.get('reservationRoomList', {})
+        if not isinstance(reservation_room_list, dict):
+            reservation_room_list = {}
         for room_type_id, rooms_dict in reservation_room_list.items():
             if not isinstance(rooms_dict, dict):
                 continue

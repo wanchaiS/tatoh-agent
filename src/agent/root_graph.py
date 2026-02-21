@@ -1,64 +1,50 @@
 from langgraph.graph import StateGraph, START, END
-from langchain_core.messages import AIMessage, HumanMessage 
-from utils.language import is_thai
 
 from agent.types import GlobalState
-from agent.chat.chat_graph import chat_graph
-from agent.booking.booking_graph import booking_graph
-from agent.intent_recognizer import intent_recognizer
+from agent.criteria_discovery.node import criteria_discovery_node
+from agent.room_evaluation.node import evaluate_options_node
 
 
-def router(state: GlobalState):
-    intent = state.get("intent")
+def get_node_by_phase(state: GlobalState):
+    phase = state.get("phase") or "criteria_discovery"
 
-    intent_map = {
-        "greeting": "chat_graph",
-        "asking_info": "chat_graph",
-        "out_of_scope": "out_of_scope_node",
-        "start_booking": "booking_graph",
-        "adjust_criteria": "booking_graph",
-        "select_room": "booking_graph",
-        "confirm_booking_terms": "booking_graph"
+    phase_map = {
+        "criteria_discovery": "criteria_discovery_node",
+        "evaluate_options": "evaluate_options_node",
+        "payment_settlement": "payment_settlement_node",
+        "contact_info_collection": "contact_info_collection_node",
+        "summarize_booking": "summarize_booking_node"
     }
 
-    return intent_map.get(intent, "chat_graph")
+    node = phase_map.get(phase)
 
+    # should never happen
+    if not node:
+        raise ValueError(f"Invalid phase: {phase}")
 
-def out_of_scope_node(state: GlobalState):
-    """handle out of scope messages"""
+    return node
 
-    # Safer retrieval of the last human message
-    human_messages = [m for m in state["messages"] if isinstance(m, HumanMessage)]
-    last_msg_content = human_messages[-1].content if human_messages else ""
+def booking_phase_classifier(state: GlobalState):
+    """Node function: does nothing, just a routing checkpoint."""
+    pass
 
-    language = "Thai" if is_thai(last_msg_content) else "English"
-
-    if language == "Thai":
-        response = "ขอโทษครับ ผมสามารถตอบได้เพียงข้อมูลเกี่ยวกับเกาะเต่า ตาโต๊ะรีสอร์ท หรือช่วยเรื่องการจองห้องพักเท่านั้นครับ"
-    else:
-        response = "I'm sorry, I can only answer questions about Koh Tao and Tatoh Resort, or help with bookings."
-    return {"messages": [AIMessage(content=response)]}
 
 graph_builder = StateGraph(GlobalState)
 
 # 1. Add Nodes
-graph_builder.add_node("intent_recognizer", intent_recognizer)
-graph_builder.add_node("chat_graph", chat_graph)
-graph_builder.add_node("booking_graph", booking_graph)
-graph_builder.add_node("out_of_scope_node", out_of_scope_node)
+graph_builder.add_node("booking_phase_classifier", booking_phase_classifier)
+graph_builder.add_node("criteria_discovery_node", criteria_discovery_node)
+graph_builder.add_node("evaluate_options_node", evaluate_options_node)
 
 # 2. Define Edges
-
-graph_builder.add_edge(START, "intent_recognizer")
-graph_builder.add_conditional_edges("intent_recognizer", router, {
-        "chat_graph": "chat_graph",
-        "booking_graph": "booking_graph",
-        "out_of_scope_node": "out_of_scope_node"
+graph_builder.add_edge(START, "booking_phase_classifier")
+graph_builder.add_conditional_edges("booking_phase_classifier", get_node_by_phase, {
+        "criteria_discovery_node": "criteria_discovery_node",
+        "evaluate_options_node": "evaluate_options_node"
     })
 
 # After sub-graphs finish, they go to END
-graph_builder.add_edge("chat_graph", END)
-graph_builder.add_edge("booking_graph", END)
-graph_builder.add_edge("out_of_scope_node", END)
+graph_builder.add_edge("evaluate_options_node", END)
+graph_builder.add_edge("criteria_discovery_node", END)
 
 graph = graph_builder.compile()

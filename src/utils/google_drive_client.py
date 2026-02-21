@@ -7,12 +7,14 @@ from googleapiclient.http import MediaIoBaseDownload
 from googleapiclient.errors import HttpError
 import io
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
-# Module-level cache for services
-_DRIVE_SERVICE = None
-_SHEETS_SERVICE = None
+
+# Use thread-local storage for services to ensure thread-safety
+# google-api-python-client is not thread-safe when sharing service objects
+_thread_local = threading.local()
 
 # Scopes needed for both Drive and Sheets (read-only)
 SCOPES = [
@@ -88,10 +90,9 @@ def _get_project_root() -> Path:
     return current.parent.parent.parent
 
 def _get_drive_service():
-    """Helper to initialize Google Drive service as a singleton."""
-    global _DRIVE_SERVICE
-    if _DRIVE_SERVICE is not None:
-        return _DRIVE_SERVICE
+    """Helper to initialize Google Drive service as a thread-local singleton."""
+    if hasattr(_thread_local, 'drive_service'):
+        return _thread_local.drive_service
 
     root_path = _get_project_root()
     creds_path = root_path / "google_credentials.json"
@@ -103,14 +104,13 @@ def _get_drive_service():
         str(creds_path), 
         scopes=SCOPES
     )
-    _DRIVE_SERVICE = build('drive', 'v3', credentials=creds)
-    return _DRIVE_SERVICE
+    _thread_local.drive_service = build('drive', 'v3', credentials=creds)
+    return _thread_local.drive_service
 
 def _get_sheets_service():
-    """Helper to initialize Google Sheets service as a singleton."""
-    global _SHEETS_SERVICE
-    if _SHEETS_SERVICE is not None:
-        return _SHEETS_SERVICE
+    """Helper to initialize Google Sheets service as a thread-local singleton."""
+    if hasattr(_thread_local, 'sheets_service'):
+        return _thread_local.sheets_service
 
     root_path = _get_project_root()
     creds_path = root_path / "google_credentials.json"
@@ -119,8 +119,8 @@ def _get_sheets_service():
         str(creds_path), 
         scopes=SCOPES
     )
-    _SHEETS_SERVICE = build('sheets', 'v4', credentials=creds)
-    return _SHEETS_SERVICE
+    _thread_local.sheets_service = build('sheets', 'v4', credentials=creds)
+    return _thread_local.sheets_service
 
 def _list_drive_files(folder_id: Optional[str] = None) -> List[Dict]:
     """

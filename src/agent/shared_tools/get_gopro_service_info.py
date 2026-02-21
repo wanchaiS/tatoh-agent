@@ -4,9 +4,8 @@ from langchain.tools import tool
 @tool
 def get_gopro_service_info():
     """
-    Get information about GoPro camera rental services for underwater photography.
+    Get information about GoPro cameras or cameras services borrow/rent.
     Includes pricing for various models, equipment inclusions, and rental duration.
-    Use this when users ask about renting GoPro cameras, GoPro prices, or taking photos underwater.
     """
 
     details = read_markdown("/cooper-project/data/gopro_service_info.md")
