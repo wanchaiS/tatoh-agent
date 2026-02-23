@@ -7,8 +7,12 @@ from utils.pms_client import get_room_availability
 from utils.google_drive_client import read_spreadsheet_data
 from utils.date_utils import format_date_ranges
 
+from agent.criteria_discovery.schema import Criteria
+
 # Cache room metadata — read_spreadsheet_data takes ~4s, no need to call it on every search
 _METADATA_TTL = 600  # 10 minutes
+EXPANSION_STEPS = [0, 3, 5, 7]
+
 
 _room_metadata: list | None = None
 _room_metadata_expires_at: float = 0
@@ -57,10 +61,55 @@ class RoomCard:
     # Populated by calculate_stay_pricing() when exact dates are known
     pricing: Optional[StayPricing] = None
 
+@dataclass
+class RunSearchResult:
+    rooms: List[RoomCard]
+    expanded_days: int
+    exhausted: bool
+    criteria_id: str
 
 # ── Public entry point ─────────────────────────────────────────────────────────
 
-def search_rooms(
+# TODO: Async Migration - Once `pms_client.get_room_availability` is converted to an `async def`,
+# this core `search_rooms` orchestration loop should also become `async def` and `await` the PMS client.
+def search_rooms(criteria: Criteria) -> RunSearchResult:
+    """
+    Search rooms with automatic window expansion.
+    Returns rooms.
+    """
+    duration = criteria.duration_nights or 1
+    
+    # search_date_start/end is the single source of truth.
+    # For exact mode, auto_fill() sets these from check_in/out.
+    # For flexible mode, the user provides them directly.
+    base_start_str = criteria.search_date_start
+    base_end_str = criteria.search_date_end
+    
+    if not base_start_str or not base_end_str:
+        return RunSearchResult(rooms=[], expanded_days=0, exhausted=True, criteria_id=criteria.get_criteria_id())
+        
+    start_dt = datetime.strptime(base_start_str, "%Y-%m-%d")
+    end_dt = datetime.strptime(base_end_str, "%Y-%m-%d")
+
+    rooms = []
+    
+    for shift in EXPANSION_STEPS:
+        curr_start = start_dt - timedelta(days=shift)
+        curr_end = end_dt + timedelta(days=shift)
+        
+        rooms = _search_rooms_window(
+            guests=criteria.total_guests or 1,
+            search_start=curr_start.strftime("%Y-%m-%d"),
+            search_end=curr_end.strftime("%Y-%m-%d"),
+            duration_nights=duration
+        )
+        
+        if rooms:
+            return RunSearchResult(rooms=rooms, expanded_days=shift, exhausted=False, criteria_id=criteria.get_criteria_id())
+
+    return RunSearchResult(rooms=rooms, expanded_days=EXPANSION_STEPS[-1], exhausted=True, criteria_id=criteria.get_criteria_id())
+
+def _search_rooms_window(
     guests: int,
     search_start: str,
     search_end: str,
@@ -93,8 +142,7 @@ def search_rooms(
 
     return _finalize_candidates(candidates, guests)
 
-
-# ── Pipeline steps ─────────────────────────────────────────────────────────────
+# ── Internal helpers ───────────────────────────────────────────────────────────
 
 def _build_candidate(raw: dict, meta: dict, room_no: str) -> dict:
     """Merge PMS availability data with room metadata."""
@@ -107,12 +155,10 @@ def _build_candidate(raw: dict, meta: dict, room_no: str) -> dict:
         "max_guests": int(meta["max_guests"]),
     }
 
-
 def _finalize_candidates(candidates: list, guests: int) -> List[RoomCard]:
     """Group and attach available date ranges for rooms."""
     grouped = _group_by_type_and_dates(candidates)
     return [_to_room_card(c, guests) for c in grouped]
-
 
 def _to_room_card(room: dict, guests: int) -> RoomCard:
     extra_bed_req = guests > room.get("max_guests", 0)

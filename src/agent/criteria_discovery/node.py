@@ -1,54 +1,53 @@
 from langgraph.types import Command
+from langchain_core.runnables import RunnableConfig
 from datetime import datetime
 
 from agent.types import GlobalState
 from agent.criteria_discovery.schema import Criteria
-from agent.criteria_discovery.tools import build_booking_tools
+from agent.criteria_discovery.tools.booking_tools import build_scoped_booking_tools
 from agent.criteria_discovery import discovery_agent
 
 
 # ── Main node ──────────────────────────────────────────────────────
-def criteria_discovery_node(state: GlobalState):
+async def criteria_discovery_node(state: GlobalState, config: RunnableConfig):
     """
-    Single-agent discovery node:
-    1. Build procedural tools (extraction + transition) with closure over current state.
-    2. Run the discovery agent with Q&A + procedural tools.
-    3. If agent triggered transition → route to evaluate_options.
+    Criteria discovery agent:
+    1. Run the discovery agent with Q&A + booking process tools.
+    2. If agent triggered transition → route to evaluate_options.
     """
-    current_criteria = state.get("criteria_discovery_state") or Criteria()
+    current_criteria = state.get("criteria") or Criteria()
     today = datetime.now().strftime("%Y-%m-%d")
 
     # Build booking tools with closure over current criteria and recent messages
-    booking_tools, is_transition_ready, get_criteria = build_booking_tools(
+    booking_tools, get_transition_state, get_criteria = build_scoped_booking_tools(
         current_criteria=current_criteria,
         messages=state["messages"],
         today=today,
     )
 
-    # Run the single ReAct agent (Q&A + procedural tools)
-    final_msg = discovery_agent.run(
-        criteria=current_criteria,
+    # Run the single ReAct agent (Q&A + booking tools)
+    final_msg = await discovery_agent.run(
+        get_criteria=get_criteria,
         messages=state["messages"],
         today=today,
         booking_tools=booking_tools,
+        config=config,
     )
 
     # Get updated criteria from tool closure
     criteria = get_criteria()
 
-    # Check if agent signaled transition via proceed_to_room_search tool
-    if is_transition_ready():
-        return Command(
-            update={
-                "criteria_discovery_state": criteria,
-                "phase": "evaluate_options",
-                "messages": [final_msg],
-            },
-            goto="evaluate_options_node",
-        )
+    # Check if ready to go to next phase
+    transition_state = get_transition_state()
+    if transition_state["ready"]:
+        return {
+            "criteria": criteria,
+            "phase": "evaluate_options",
+            "messages": [final_msg],
+        }
 
     # Stay in discovery
     return {
-        "criteria_discovery_state": criteria,
+        "criteria": criteria,
         "messages": [final_msg],
     }

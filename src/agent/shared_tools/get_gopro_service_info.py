@@ -1,7 +1,9 @@
 from utils.google_drive_client import read_markdown, get_image_direct_link
 from langchain.tools import tool
+from utils.tool_errors import handle_tool_error
 
 @tool
+@handle_tool_error
 def get_gopro_service_info():
     """
     Get information about GoPro cameras or cameras services borrow/rent.

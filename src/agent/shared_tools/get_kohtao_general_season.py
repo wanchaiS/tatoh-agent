@@ -1,8 +1,9 @@
 from utils.google_drive_client import read_markdown
 from langchain.tools import tool
-
+from utils.tool_errors import handle_tool_error
 
 @tool
+@handle_tool_error
 def get_kohtao_general_season():
     """
     Get official information about Koh Tao's seasons, weather patterns throughout the year, 

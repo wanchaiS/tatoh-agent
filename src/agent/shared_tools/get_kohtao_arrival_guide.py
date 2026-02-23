@@ -1,7 +1,9 @@
 from utils.google_drive_client import read_markdown, get_image_direct_link
 from langchain.tools import tool
+from utils.tool_errors import handle_tool_error
 
 @tool
+@handle_tool_error
 def get_kohtao_arrival_guide():
     """
     Get general guidance and recommendations on how to travel to Koh Tao 

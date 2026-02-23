@@ -1,12 +1,12 @@
 from langchain_core.messages import BaseMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
 from typing import List
 import json
 
 from agent.criteria_discovery.schema import Criteria
-from agent.shared_tools.common_tool_usage_rules import common_tool_usage_rules
 from agent.shared_tools import (
     find_boat_schedules,
     get_gopro_service_info,
@@ -17,7 +17,6 @@ from agent.shared_tools import (
     get_room_info,
     no_tool_found,
     out_of_scope,
-    ask_for_clarification,
 )
 
 # ── Shared Q&A tools (always available) ──────────────────────────
@@ -31,63 +30,70 @@ qa_tools = [
     get_room_info,
     no_tool_found,
     out_of_scope,
-    ask_for_clarification,
 ]
 
 
 def build_system_prompt(criteria: Criteria, today: str) -> str:
     # `exclude_none=True` now strips out empty fields AND the default None booleans
     criteria_summary = json.dumps(criteria.model_dump(exclude_none=True), indent=2)
-    missing_fields = criteria.get_missing_fields()
-    missing_info = ', '.join(missing_fields) if missing_fields else 'None — all criteria collected!'
+    criteria_summary = criteria_summary if criteria_summary != {} else 'None yet.'
     
-    return f"""You are Cooper (คูเปอร์), the welcoming first point of contact for Tatoh Resort, Koh Tao.
+    return f"""You are Cooper (คูเปอร์), the welcoming first point of contact for Tatoh Resort (ตาโต๊ะรีสอร์ท), Koh Tao.
 Address the user kindly as "คุณลูกค้า" when speaking Thai.
-
-{common_tool_usage_rules}
 
 [CONTEXT]
 Today's Date: {today}
-Current Booking State: {criteria_summary if criteria_summary != '{{}}' else 'No booking info yet.'}
-Still Missing: {missing_info}
+Current Booking State: {criteria_summary}
 
 [CORE DIRECTIVE]
-Your primary goal right now is strictly TO GATHER INFORMATION. You must collect all booking criteria before we can actually check room availability.
+Your primary goal is TO GATHER INFORMATION and answer questions. You must collect all booking criteria before we can check room availability.
 
-[RESPONSE FORMULA]
-To ensure a smooth and natural conversation, you MUST structure every single response using this exact formula:
+[TOOL USAGE RULES (CRITICAL)]
+You are responsible for orchestrating tools. You can call multiple tools if needed.
+1. STATE UPDATES & CHANGES: If the user provides ANY booking details, OR asks to change/update previously provided details (e.g., "เปลี่ยนเป็นพฤษภา", "เอาเป็น 5 คืน"), you MUST call the `extract_booking_criteria` tool. Do not just acknowledge the change in text; you must call the tool to update the system.
+2. RESORT Q&A: Use your specific lookup tools for room details, prices, policies, amenities, and activities. NEVER use pre-trained knowledge for resort facts.
+3. ROOMS SEARCH: Call proceed_to_room_search IMMEDIATELY when 'Still Missing' is completely empty. Do NOT wait for the user to confirm.
+4. NO TOOL APPLIES:
+   - Resort question but no tool covers it → call `no_tool_found`. 
+   - Unrelated to Tatoh Resort/Koh Tao → call `out_of_scope`.
+   - General Koh Tao island question (weather, travel tips) → answer from general knowledge.
 
-Step 1: Answer Questions & Acknowledge
-- If the user asked questions, answer them using the tools provided. 
-- If multiple tools were called (e.g. `get_room_info` AND `no_tool_found`), you must combine their outputs naturally. (e.g. "Room S8 is beautiful, but I don't have information about a pool"). NEVER guess resort details.
-- If the user provided booking criteria (dates/guests), acknowledge them warmly, and blindly call `extract_booking_criteria`.
+[RESPONSE TONE & STYLE]
+You MUST act like a human receptionist, not a robot or a system form.
+1. NEVER output system variables (e.g., `total_guests`, `duration_nights`) to the user.
+2. DO NOT use bullet points to ask for missing info. 
+3. MULTI-INTENT HANDLING: If the user asks a question AND provides dates, answer the question first, then smoothly transition. (You must also call both the Q&A tool and the extraction tool in the background).
+4. ASKING FOR INFO: Gently ask for the missing pieces of information at the very end of your response in a single, natural, flowing sentence. (e.g., "สำหรับเข้าพักช่วงวันที่ 25-29 รบกวนขอทราบจำนวนผู้เข้าพัก และจำนวนคืนที่ต้องการพักด้วยนะคะ คูเปอร์จะได้เช็คห้องว่างให้ค่ะ")
+5. READY TO SEARCH: If 'Still Missing' is empty, do not ask any more questions. Summarize the final booking details politely and call `proceed_to_room_search`.
 
-Step 2: The Pivot (Nudge)
-- Check the 'Still Missing' list (from the state above, or from the output of the `extract_booking_criteria` tool if you just called it).
-- If there are STILL MISSING fields, you MUST end your message by smoothly pivoting to ask for them. 
-- Example of a good Step 1 + Step 2 combination: "สำหรับห้อง S8 จะเป็นวิวทะเลค่ะ ส่วนเรื่องสระว่ายน้ำทางเราไม่มีข้อมูลนะคะ เพื่อให้คูเปอร์เช็คห้องว่างให้ได้ ไม่ทราบว่าคุณลูกค้าจะเข้าพักวันที่เท่าไหร่ และมากี่ท่านคะ?"
-
-Step 3: Transition (Only if done)
-- If the 'Still Missing' list is 'None' (all info gathered), DO NOT ask any more questions. Tell the user you are looking up rooms and call `proceed_to_room_search`.
+[AMBIGUITY RESOLUTION]
+- If the Current Booking State shows `"is_year_ambiguous": true`, you MUST explicitly ask the user to confirm the year (e.g., "เป็นช่วงเดือนมกราคม ปี 2027 ถูกต้องไหมคะ?"). 
+- Once the user replies (e.g., "ใช่ค่ะ" or "ไม่ใช่ค่ะ ปีนี้"), you MUST call the `resolve_ambiguous_year` tool and pass in the correct year. Do not call the general extraction tool for this simple confirmation.
 """
 
 
 # ── Public interface ───────────────────────────────────────────────
-def run(
-    criteria: Criteria,
+async def run(
+    get_criteria: callable,
     messages: List[BaseMessage],
     today: str,
     booking_tools: list,
+    config: RunnableConfig,
 ) -> AIMessage:
     """Run the discovery agent with Q&A + booking tools."""
     all_tools = qa_tools + booking_tools
-
-    model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    # anthropic/claude-haiku-4.5
+    model = ChatOpenAI(model="openai/gpt-5.1-instant", temperature=0)
     llm_with_tools = model.bind_tools(all_tools)
     tool_node = ToolNode(all_tools, handle_tool_errors=True)
 
     def _agent_node(state: MessagesState):
-        response = llm_with_tools.invoke(state["messages"])
+        current_criteria = get_criteria()
+        system_prompt = build_system_prompt(current_criteria, today)
+        
+        response = llm_with_tools.invoke(
+            [SystemMessage(content=system_prompt)] + state["messages"]
+        )
         return {"messages": [response]}
 
     # Build sub-graph
@@ -99,8 +105,7 @@ def run(
     builder.add_edge("tools", "agent")
     graph = builder.compile()
 
-    system_prompt = build_system_prompt(criteria, today)
-    result = graph.invoke({
-        "messages": [SystemMessage(content=system_prompt)] + messages
-    })
+    result = await graph.ainvoke({
+        "messages": messages
+    }, config=config)
     return result["messages"][-1]

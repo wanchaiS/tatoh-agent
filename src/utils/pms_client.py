@@ -118,6 +118,7 @@ def login():
         if token:
             _update_env_file("PMS_ACCESS_TOKEN", token)
 
+# TODO: Async Migration - Convert this function to `async def` and `await` the internal network calls.
 def get_room_availability(start_date: datetime, end_date: datetime) -> Dict[str, Any]:
     """
     Fetches room availability from the PMS within the given [start_date, end_date) window.

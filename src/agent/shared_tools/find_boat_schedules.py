@@ -2,6 +2,7 @@ from typing import List, Dict, Literal
 from langchain.tools import tool
 
 from utils.google_drive_client import read_spreadsheet_data
+from utils.tool_errors import handle_tool_error
 
 Location = Literal[
     "bangkok", "chumphon", "hua hin", "koh phangan", "koh samui", "koh tao", 
@@ -19,6 +20,7 @@ def _clean_location(name: str) -> str:
     return name.split("(")[0].strip().lower()
 
 @tool
+@handle_tool_error
 def find_boat_schedules(req_origin: Location, req_destination: Location) -> List[Dict]:
     """
     Find boat schedules from origin to destination. Use for 'when' or route advice.
