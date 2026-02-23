@@ -2,7 +2,7 @@ import os
 import requests
 from langchain.tools import tool
 from dotenv import load_dotenv
-from utils.tool_errors import handle_tool_error
+from agent.utils.tool_errors import handle_tool_error
 
 # Find the project root (where .env should be)
 _ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

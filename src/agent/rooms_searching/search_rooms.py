@@ -3,9 +3,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 
-from utils.pms_client import get_room_availability
-from utils.google_drive_client import read_spreadsheet_data
-from utils.date_utils import format_date_ranges
+from agent.utils.pms_client import get_room_availability
+from agent.utils.google_drive_client import read_spreadsheet_data
+from agent.utils.date_utils import format_date_ranges
 
 from agent.criteria_discovery.schema import Criteria
 

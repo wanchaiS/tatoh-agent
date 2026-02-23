@@ -1,7 +1,7 @@
 from pathlib import Path
 from langchain.tools import tool
-from utils.google_drive_client import read_spreadsheet_data
-from utils.tool_errors import handle_tool_error
+from agent.utils.google_drive_client import read_spreadsheet_data
+from agent.utils.tool_errors import handle_tool_error
 
 @tool   
 @handle_tool_error

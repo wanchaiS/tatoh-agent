@@ -1,8 +1,8 @@
 from typing import List, Dict, Literal
 from langchain.tools import tool
 
-from utils.google_drive_client import read_spreadsheet_data
-from utils.tool_errors import handle_tool_error
+from agent.utils.google_drive_client import read_spreadsheet_data
+from agent.utils.tool_errors import handle_tool_error
 
 Location = Literal[
     "bangkok", "chumphon", "hua hin", "koh phangan", "koh samui", "koh tao", 

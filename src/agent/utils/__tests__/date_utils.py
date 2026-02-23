@@ -1,5 +1,5 @@
 import pytest
-from utils.date_utils import format_date_ranges
+from agent.utils.date_utils import format_date_ranges
 
 def test_format_empty_list():
     assert format_date_ranges([]) == []

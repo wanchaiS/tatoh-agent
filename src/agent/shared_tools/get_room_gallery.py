@@ -1,7 +1,7 @@
 from typing import List
 from langchain.tools import tool
-from utils.google_drive_client import list_images_in_folder
-from utils.tool_errors import handle_tool_error
+from agent.utils.google_drive_client import list_images_in_folder
+from agent.utils.tool_errors import handle_tool_error
 
 @tool
 @handle_tool_error

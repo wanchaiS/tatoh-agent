@@ -1,6 +1,6 @@
-from utils.google_drive_client import read_markdown
+from agent.utils.google_drive_client import read_markdown
 from langchain.tools import tool
-from utils.tool_errors import handle_tool_error
+from agent.utils.tool_errors import handle_tool_error
 
 @tool
 @handle_tool_error

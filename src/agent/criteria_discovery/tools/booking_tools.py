@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 
 from agent.criteria_discovery.schema import Criteria
-from utils.tool_errors import handle_tool_error
+from agent.utils.tool_errors import handle_tool_error
 
 def _get_extraction_llm():
     """Lazy init to avoid import-time API key requirement."""

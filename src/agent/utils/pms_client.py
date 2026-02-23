@@ -5,7 +5,7 @@ import requests
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, TypedDict, NotRequired
-from utils.http_client import make_request
+from agent.utils.http_client import make_request
 import logging
 
 
