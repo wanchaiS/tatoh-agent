@@ -103,46 +103,16 @@ def build_scoped_booking_tools(
 
         if is_year_ambiguous:
             parts.append("Year is ambiguous — please ask the user to confirm the year.")
-        if not criteria.duration_nights and criteria.search_date_start and criteria.search_date_end:
-            parts.append("Note: The duration of stay is not explicit. You MUST politely ask the user to confirm how many nights they want to stay.")
         if errors:
             parts.append(f"Validation errors: {errors}")
         if missing:
             parts.append(f"Still missing: {', '.join(missing)}")
         
         if not errors and not missing and not is_year_ambiguous:
+            state["transition_ready"] = True
             parts.append("All required criteria collected!")
 
         return "\n".join(parts)
-
-    @tool
-    @handle_tool_error
-    async def proceed_to_room_search(config: RunnableConfig) -> str:
-        """Proceed to search for available rooms. Call this ONLY when all
-        booking criteria have been collected AND confirmed with the user.
-        Do NOT call if there are still missing fields."""
-
-        criteria = state["criteria"]
-        missing = criteria.get_missing_fields()
-        errors = criteria.validate_data()
-        is_year_ambiguous = criteria.is_year_ambiguous
-
-        if missing:
-            return f"Cannot proceed — still missing: {', '.join(missing)}"
-        if errors:
-            return f"Cannot proceed — validation errors: {errors}"
-        if is_year_ambiguous:
-            return "Cannot proceed — year is ambiguous, please confirm with the user first."
-        if not criteria.duration_nights:
-            return "Cannot proceed — duration is missing. Please politely confirm how many nights they want to stay."
-
-        state["transition_ready"] = True
-
-        return (
-            "All criteria validated! Tell the user politely that you have all the details "
-            "and are now going to check the room availability for them. Do NOT tell them the results yet, "
-            "just give a short, friendly confirmation that you're checking."
-        )
 
     @tool
     @handle_tool_error
@@ -180,7 +150,7 @@ def build_scoped_booking_tools(
 
         return f"Successfully updated the year to {confirmed_year}. Updated Dates: {criteria.search_date_start} to {criteria.search_date_end}"
 
-    tools = [extract_booking_criteria, proceed_to_room_search, resolve_ambiguous_year]
+    tools = [extract_booking_criteria, resolve_ambiguous_year]
 
     return (
         tools,

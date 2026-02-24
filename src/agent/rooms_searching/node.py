@@ -4,6 +4,7 @@ from typing import Dict, Any
 from agent.types import GlobalState
 from langchain_core.messages import AIMessage
 from agent.rooms_searching.search_rooms import search_rooms, RunSearchResult
+from agent.criteria_discovery.schema import Criteria
 
 async def search_availability_node(state: GlobalState) -> Dict[str, Any]:
     """
@@ -42,13 +43,13 @@ async def search_availability_node(state: GlobalState) -> Dict[str, Any]:
             "current_search_results": rooms_data,
             "expanded_days": search_result.expanded_days,
             "exhausted": search_result.exhausted,
-            "search_results_summary": _build_search_results_summary(search_result)
+            "search_results_summary": _build_search_results_summary(search_result, criteria)
         },
         "phase": "evaluate_options"
     }
 
 
-def _build_search_results_summary(search_result: RunSearchResult) -> str:
+def _build_search_results_summary(search_result: RunSearchResult, criteria: Criteria) -> str:
     """Build a summary of the search results for the agent."""
     
     # Extract data
@@ -61,7 +62,7 @@ def _build_search_results_summary(search_result: RunSearchResult) -> str:
     
     # Header
     summary.append("[Search Results Summary]")
-    summary.append(f"Search Original Date: {search_result.criteria.search_date_start} - {search_result.criteria.search_date_end}")
+    summary.append(f"Search Original Date: {criteria.search_date_start} - {criteria.search_date_end}")
     summary.append(f"Expanded search by +-{expanded_days} days" if expanded_days > 0 else "No expansion needed")
     summary.append(f"Exhausted: {exhausted}")
     summary.append("")

@@ -32,7 +32,7 @@ packages = ["langgraph.templates.agent", "agent", "utils"]
 [tool.setuptools.package-dir]
 "langgraph.templates.agent" = "src/agent"
 "agent" = "src/agent"
-"utils" = "src/utils"
+"utils" = "src/agent/utils"
 
 
 [tool.setuptools.package-data]

@@ -28,7 +28,7 @@ _state = {
     "token": os.getenv("PMS_ACCESS_TOKEN"),
     "token_expiry": 0,
     "lock": threading.Lock(),
-    "base_url": os.getenv("PMS_BASE_URL", "https://pms-api.hoteliers.guru/api").rstrip("/"),
+    "base_url": os.getenv("PMS_BASE_URL").rstrip("/"),
     "hotel_code": os.getenv("PMS_HOTEL_CODE"),
     "username": os.getenv("PMS_USERNAME"),
     "password": os.getenv("PMS_PASSWORD"),
