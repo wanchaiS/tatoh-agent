@@ -1,13 +1,14 @@
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Tuple
 
 from agent.utils.pms_client import get_room_availability
 from agent.utils.google_drive_client import read_spreadsheet_data
 from agent.utils.date_utils import format_date_ranges
 
 from agent.criteria_discovery.schema import Criteria
+from agent.rooms_searching.schema import StayOption
 
 # Cache room metadata — read_spreadsheet_data takes ~4s, no need to call it on every search
 _METADATA_TTL = 600  # 10 minutes
@@ -28,38 +29,14 @@ def _get_room_metadata() -> list:
 # ── Domain types ───────────────────────────────────────────────────────────────
 
 @dataclass
-class PriceBreakdownItem:
-    tier: str       # "Weekday" | "Weekend" | "Holiday"
-    nights: int
-    rate: int
-    subtotal: int
-
-@dataclass
-class ExtraBedInfo:
-    nights: int
-    rate: int = 700
-    subtotal: int = 0
-
-    def __post_init__(self):
-        self.subtotal = self.nights * self.rate
-
-@dataclass
-class StayPricing:
-    total_price: int
-    breakdown: List[PriceBreakdownItem]
-    extra_bed: Optional[ExtraBedInfo] = None
-
-@dataclass
 class RoomCard:
     room_no: str
     room_type: str
     max_guests: int
     requested_guests: int
-    available_ranges: List[str]
+    available_from_to_dates: List[Tuple[datetime, datetime]]
     nightly_rates: Dict[str, int]
     extra_bed_required: bool = False
-    # Populated by calculate_stay_pricing() when exact dates are known
-    pricing: Optional[StayPricing] = None
 
 @dataclass
 class RunSearchResult:
@@ -214,54 +191,3 @@ def _group_by_type_and_dates(candidates: list) -> list:
         item["room_no"] = ", ".join(sorted(item["room_nos"]))
         result.append(item)
     return result
-
-
-# ── Pricing ────────────────────────────────────────────────────────────────────
-
-_HOLIDAYS = lambda dt: (
-    (dt.month == 12 and dt.day >= 25) or
-    (dt.month == 1 and dt.day <= 5) or
-    (dt.month == 4 and 10 <= dt.day <= 17)
-)
-_WEEKENDS = lambda dt: dt.weekday() in [4, 5, 6]
-
-
-def calculate_stay_pricing(
-    card: RoomCard,
-    check_in: str,
-    check_out: str,
-) -> RoomCard:
-    """
-    Calculate exact pricing for a RoomCard given specific check-in/out dates.
-    Mutates and returns the card with pricing populated.
-    """
-    check_in_dt = datetime.strptime(check_in, "%Y-%m-%d")
-    check_out_dt = datetime.strptime(check_out, "%Y-%m-%d")
-    rates = card.nightly_rates
-    rate_map = {
-        "Weekday": rates.get("weekday", 0),
-        "Weekend": rates.get("weekend", 0),
-        "Holiday": rates.get("holiday", 0),
-    }
-    counts = {"Weekday": 0, "Weekend": 0, "Holiday": 0}
-
-    current = check_in_dt
-    while current < check_out_dt:
-        tier = "Holiday" if _HOLIDAYS(current) else "Weekend" if _WEEKENDS(current) else "Weekday"
-        counts[tier] += 1
-        current += timedelta(days=1)
-
-    total = sum(rate_map[t] * counts[t] for t in counts)
-    breakdown = [
-        PriceBreakdownItem(tier=t, nights=counts[t], rate=rate_map[t], subtotal=counts[t] * rate_map[t])
-        for t in counts if counts[t] > 0
-    ]
-
-    extra_bed = None
-    if card.extra_bed_required:
-        num_nights = (check_out_dt - check_in_dt).days
-        extra_bed = ExtraBedInfo(nights=num_nights)
-        total += extra_bed.subtotal
-
-    card.pricing = StayPricing(total_price=total, breakdown=breakdown, extra_bed=extra_bed)
-    return card

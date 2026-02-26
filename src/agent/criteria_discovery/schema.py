@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class Criteria(BaseModel):
     search_date_start: Optional[str] = Field(None, description="Start date for availability window (YYYY-MM-DD).")
@@ -8,11 +8,36 @@ class Criteria(BaseModel):
     duration_nights: Optional[int] = Field(None, description="Duration of stay in number of nights.")
     total_guests: Optional[int] = Field(None, description="Total number of guests.")
     is_year_ambiguous: Optional[bool] = Field(None, description="Set to true if a date/month is mentioned but it's unclear if it's for the current year or next year.")
+    
     def _parse(self, date_str: Optional[str]) -> Optional[datetime]:
         if not date_str: return None
         try: return datetime.strptime(date_str, "%Y-%m-%d")
         except (ValueError, TypeError): return None
+        
+    def get_expanded_windows(self, expanded_days: int) -> Tuple[str, str]:
+        """
+        Get expanded search windows
+        
+        Args:
+            expanded_days: Number of days to expand the search by
+            
+        Returns:
+            Tuple of (expanded_start_date, expanded_end_date)
+        """
+        if not expanded_days or expanded_days < 0:
+            return self.search_date_start, self.search_date_end
+        
+        start_dt = self._parse(self.search_date_start)
+        end_dt = self._parse(self.search_date_end)
+        
+        if not start_dt or not end_dt:
+            return self.search_date_start, self.search_date_end
+        
+        start_dt = start_dt - timedelta(days=expanded_days)
+        end_dt = end_dt + timedelta(days=expanded_days)
 
+        return start_dt.strftime("%Y-%m-%d"), end_dt.strftime("%Y-%m-%d")
+        
     def get_missing_fields(self) -> List[str]:
         """Determine missing fields."""
         required_fields = ["total_guests", "search_date_start", "search_date_end", "duration_nights"]

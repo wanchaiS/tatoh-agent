@@ -97,11 +97,11 @@ async def run(
 
     # Build sub-graph
     builder = StateGraph(MessagesState)
-    builder.add_node("agent", _agent_node)
+    builder.add_node("discovery_agent", _agent_node)
     builder.add_node("tools", tool_node)
-    builder.add_edge(START, "agent")
-    builder.add_conditional_edges("agent", tools_condition)
-    builder.add_edge("tools", "agent")
+    builder.add_edge(START, "discovery_agent")
+    builder.add_conditional_edges("discovery_agent", tools_condition)
+    builder.add_edge("tools", "discovery_agent")
     graph = builder.compile()
 
     result = await graph.ainvoke({

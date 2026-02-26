@@ -40,11 +40,14 @@ async def criteria_discovery_node(state: GlobalState, config: RunnableConfig):
     # Check if ready to go to next phase
     transition_state = get_transition_state()
     if transition_state["ready"]:
-        return {
-            "criteria": criteria,
-            "phase": "evaluate_options",
-            "messages": [final_msg],
-        }
+        return Command(
+            goto="room_searching_node",
+            update={
+                "criteria": criteria,
+                "phase": "room_searching",
+                "messages": [final_msg],
+            }
+        )
 
     # Stay in discovery
     return {

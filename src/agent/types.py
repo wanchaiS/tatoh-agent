@@ -25,6 +25,8 @@ def update_criteria(left: Optional[Criteria], right: Optional[Any]) -> Criteria:
     """merge new criteria discovery state into existing state"""
     if left is None:
         left = Criteria()
+    if right == "clear":
+        return Criteria()
     if right is None:
         return left
     
@@ -38,6 +40,7 @@ def update_criteria(left: Optional[Criteria], right: Optional[Any]) -> Criteria:
     return Criteria.model_validate(current_data)
 
 Phase = Literal["criteria_discovery",
+                  "room_searching",
                   "evaluate_options",
                   "payment_settlement",
                   "contact_info_collection",

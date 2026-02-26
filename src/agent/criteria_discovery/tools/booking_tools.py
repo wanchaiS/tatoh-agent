@@ -80,14 +80,14 @@ def build_scoped_booking_tools(
 
     @tool
     @handle_tool_error
-    def extract_booking_criteria() -> str:
+    async def extract_booking_criteria() -> str:
         """Extract booking information (dates, guests, rooms, duration) from
         the user's message. Call this when the user provides ANY booking-related
         information such as check-in/out dates, number of guests, preferred
         rooms, or duration of stay.
         """
         prompt = _build_extraction_prompt(state["criteria"], today)
-        criteria = _get_extraction_llm().invoke(
+        criteria = await _get_extraction_llm().ainvoke(
             [SystemMessage(content=prompt)] + recent_messages
         )
 
