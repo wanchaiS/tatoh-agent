@@ -3,7 +3,7 @@ from langgraph.graph import StateGraph, START, END
 from agent.types import GlobalState
 from agent.criteria_discovery.node import criteria_discovery_node
 from agent.rooms_searching.node import room_searching_node
-from agent.room_evaluation.node import evaluate_options_node
+from agent.room_evaluation.node import room_evaluation_node
 
 
 def get_node_by_phase(state: GlobalState):
@@ -31,16 +31,16 @@ graph_builder = StateGraph(GlobalState)
 # 1. Add Nodes
 graph_builder.add_node("criteria_discovery_node", criteria_discovery_node)
 graph_builder.add_node("room_searching_node", room_searching_node)
-graph_builder.add_node("evaluate_options_node", evaluate_options_node)
+graph_builder.add_node("room_evaluation_node", room_evaluation_node)
 
 # 2. Define Edges
 graph_builder.add_conditional_edges(START, get_node_by_phase, {
         "criteria_discovery_node": "criteria_discovery_node",
         "room_searching_node": "room_searching_node",
-        "evaluate_options_node": "evaluate_options_node"
+        "room_evaluation_node": "room_evaluation_node"
     })
 
 # After sub-graphs finish, they go to END
-graph_builder.add_edge("evaluate_options_node", END)
+graph_builder.add_edge("room_evaluation_node", END)
 
 graph = graph_builder.compile()

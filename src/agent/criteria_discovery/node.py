@@ -1,56 +1,32 @@
 from langgraph.types import Command
 from langchain_core.runnables import RunnableConfig
-from datetime import datetime
 
 from agent.types import GlobalState
 from agent.criteria_discovery.schema import Criteria
-from agent.criteria_discovery.tools.booking_tools import build_scoped_booking_tools
-from agent.criteria_discovery import discovery_agent
+from agent.criteria_discovery.discovery_agent import criteria_discovery_graph
 
 
 # ── Main node ──────────────────────────────────────────────────────
 async def criteria_discovery_node(state: GlobalState, config: RunnableConfig):
     """
-    Criteria discovery agent:
-    1. Run the discovery agent with Q&A + booking process tools.
-    2. If agent triggered transition → route to evaluate_options.
+    Criteria discovery agent, extract criteria and answer questions
     """
-    current_criteria = state.get("criteria") or Criteria()
-    today = datetime.now().strftime("%Y-%m-%d")
+    sub_config = {**(config or {}), "recursion_limit": 10}
+    result = await criteria_discovery_graph.ainvoke(state, config=sub_config)
 
-    # Build booking tools with closure over current criteria and recent messages
-    booking_tools, get_transition_state, get_criteria = build_scoped_booking_tools(
-        current_criteria=current_criteria,
-        messages=state["messages"],
-        today=today,
-    )
+    criteria = result.get("criteria") or state.get("criteria") or Criteria()
 
-    # Run the single ReAct agent (Q&A + booking tools)
-    final_msg = await discovery_agent.run(
-        get_criteria=get_criteria,
-        messages=state["messages"],
-        today=today,
-        booking_tools=booking_tools,
-        config=config,
-    )
-
-    # Get updated criteria from tool closure
-    criteria = get_criteria()
-
-    # Check if ready to go to next phase
-    transition_state = get_transition_state()
-    if transition_state["ready"]:
+    if criteria.is_ready():
         return Command(
             goto="room_searching_node",
             update={
                 "criteria": criteria,
                 "phase": "room_searching",
-                "messages": [final_msg],
-            }
+                "messages": [result["messages"][-1]],
+            },
         )
 
-    # Stay in discovery
     return {
         "criteria": criteria,
-        "messages": [final_msg],
+        "messages": [result["messages"][-1]],
     }

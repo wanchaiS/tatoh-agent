@@ -33,8 +33,8 @@ class RoomCard:
     room_no: str
     room_type: str
     max_guests: int
-    requested_guests: int
-    available_from_to_dates: List[Tuple[datetime, datetime]]
+    requested_guests: int 
+    available_ranges: List[str]
     nightly_rates: Dict[str, int]
     extra_bed_required: bool = False
 

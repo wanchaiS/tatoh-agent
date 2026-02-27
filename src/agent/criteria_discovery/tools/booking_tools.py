@@ -1,17 +1,20 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
-from langchain_core.messages import SystemMessage
-from langchain_core.runnables import RunnableConfig
+from langchain_core.messages import SystemMessage, ToolMessage, HumanMessage, AIMessage
+from langchain.tools import ToolRuntime
+from langgraph.types import Command
 import json
 from datetime import datetime
+from calendar import monthrange
 
 from agent.criteria_discovery.schema import Criteria
-from agent.utils.tool_errors import handle_tool_error
+
 
 def _get_extraction_llm():
     """Lazy init to avoid import-time API key requirement."""
     model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     return model.with_structured_output(Criteria)
+
 
 def _build_extraction_prompt(current_criteria: Criteria, today: str) -> str:
     """Build the extraction prompt"""
@@ -19,9 +22,9 @@ def _build_extraction_prompt(current_criteria: Criteria, today: str) -> str:
     return f"""
     You are a booking extraction assistant for Tatoh Resort.
 
-    Your ONLY job is to extract explicit dates, numbers from the user's message. 
+    Your ONLY job is to extract explicit dates, numbers from the user's message.
     DO NOT guess the user's intent, and DO NOT calculate missing fields (like duration) yourself. If a value is not explicitly stated, leave it null.
-    
+
     Current Date: {today}
     Current Parsed State: {json.dumps(current_criteria.model_dump(), indent=2)}
 
@@ -37,19 +40,19 @@ def _build_extraction_prompt(current_criteria: Criteria, today: str) -> str:
 
     ## EXAMPLES (Edge Cases):
 
-    - User: "สวัสดีคะมีห้องว่างวันที่ 25-28มั้ยคะ" 
+    - User: "สวัสดีคะมีห้องว่างวันที่ 25-28มั้ยคะ"
     Logic: Day-only. Ahead of current date (Feb 22). Assume current month. Do NOT calculate duration.
     Output: {{ "search_date_start": "2026-02-25", "search_date_end": "2026-02-28", "duration_nights": null, "preferred_rooms": null, "guest_meta_data": null, "is_year_ambiguous": false }}
 
-    - User: "สอบถามช่วงมกราคมครับ" 
+    - User: "สอบถามช่วงมกราคมครับ"
     Logic: Month-only. January has already passed this year (2026). Assume Jan 2027 and flag ambiguous.
     Output: {{ "search_date_start": "2027-01-01", "search_date_end": "2027-01-31", "duration_nights": null, "preferred_rooms": null, "guest_meta_data": null, "is_year_ambiguous": true }}
 
-    - User: "อยากได้ห้อง S8 คืนนึงค่ะ พาแม่ที่อายุมากไปด้วย ผู้ใหญ่ 2" 
+    - User: "อยากได้ห้อง S8 คืนนึงค่ะ พาแม่ที่อายุมากไปด้วย ผู้ใหญ่ 2"
     Logic: Explicit room, explicit duration ("คืนนึง"), explicit metadata. No dates provided.
     Output: {{ "search_date_start": null, "search_date_end": null, "duration_nights": 1, "total_guests": 2, "preferred_rooms": ["S8"], "guest_meta_data": "Traveling with elderly mother", "is_year_ambiguous": false }}
 
-    - User: "ไป 10-12 พฤษภาคม 4 คน มีเด็ก 2 ขวบ 1 คน" 
+    - User: "ไป 10-12 พฤษภาคม 4 คน มีเด็ก 2 ขวบ 1 คน"
     Logic: Missing year, but May is in the future. Assume 2026. Summarize metadata.
     Output: {{ "search_date_start": "2026-05-10", "search_date_end": "2026-05-12", "duration_nights": null, "total_guests": 5, "preferred_rooms": null, "guest_meta_data": "Includes 1 toddler (2 years old)", "is_year_ambiguous": false }}
 
@@ -58,104 +61,88 @@ def _build_extraction_prompt(current_criteria: Criteria, today: str) -> str:
     Output: {{ "search_date_start": "2026-04-01", "search_date_end": "2026-04-30", "duration_nights": 2, "preferred_rooms": ["V2"], "guest_meta_data": null, "is_year_ambiguous": false }}
     """
 
-def build_scoped_booking_tools(
-    current_criteria: Criteria,
-    messages: list,
-    today: str,
-):
+
+@tool
+async def extract_booking_criteria(runtime: ToolRuntime) -> Command:
+    """Extract booking information (dates, guests, rooms, duration) from
+    the user's message. Call this when the user provides ANY booking-related
+    information such as check-in/out dates, number of guests, preferred
+    rooms, or duration of stay.
     """
-    Build procedural tools with closure over current criteria and recent messages.
-    Returns (tools_list, is_transition_ready_fn, get_criteria_fn).
-    """
-    # Mutable container so tools can update criteria
-    state = {
-        "criteria": current_criteria,
-        "transition_ready": False,
-        "search_results": [],
-        "expanded_days": 0,
-    }
+    current_criteria = runtime.state.get("criteria") or Criteria()
+    today = datetime.now().strftime("%Y-%m-%d")
+    # Filter to clean conversation messages only — exclude AIMessages with tool_calls
+    # and ToolMessages, since the extraction LLM doesn't accept dangling tool calls.
+    all_messages = runtime.state["messages"]
+    clean = [
+        m for m in all_messages
+        if isinstance(m, (HumanMessage, AIMessage)) and not getattr(m, "tool_calls", [])
+    ]
+    recent = clean[-6:] if len(clean) > 8 else clean
 
-    # Keep last few messages for context (agent may strip context from query)
-    recent_messages = messages[-6:] if len(messages) > 8 else messages
-
-    @tool
-    @handle_tool_error
-    async def extract_booking_criteria() -> str:
-        """Extract booking information (dates, guests, rooms, duration) from
-        the user's message. Call this when the user provides ANY booking-related
-        information such as check-in/out dates, number of guests, preferred
-        rooms, or duration of stay.
-        """
-        prompt = _build_extraction_prompt(state["criteria"], today)
-        criteria = await _get_extraction_llm().ainvoke(
-            [SystemMessage(content=prompt)] + recent_messages
-        )
-
-        state["criteria"] = criteria
-
-        # Build response for the agent
-        missing = criteria.get_missing_fields()
-        errors = criteria.validate_data()
-        is_year_ambiguous = criteria.is_year_ambiguous
-
-        parts = []
-        parts.append(f"Extracted: {json.dumps(criteria.model_dump(exclude_none=True), indent=2)}")
-
-        if is_year_ambiguous:
-            parts.append("Year is ambiguous — please ask the user to confirm the year.")
-        if errors:
-            parts.append(f"Validation errors: {errors}")
-        if missing:
-            parts.append(f"Still missing: {', '.join(missing)}")
-        
-        if not errors and not missing and not is_year_ambiguous:
-            state["transition_ready"] = True
-            parts.append("All required criteria collected!")
-
-        return "\n".join(parts)
-
-    @tool
-    @handle_tool_error
-    def resolve_ambiguous_year(confirmed_year: int) -> str:
-        """
-        Call this tool ONLY when you have asked the user to confirm an ambiguous year (e.g., asking if they meant 2027) 
-        and the user has confirmed or corrected it. Pass the final, correct 4-digit year (e.g., 2027 or 2026) 
-        into this tool to update the system and remove the ambiguity.
-        """
-        criteria = state["criteria"]
-        if not criteria.is_year_ambiguous:
-            return "Error: The year is not currently flagged as ambiguous."
-
-        # Reconstruct dates with the new year
-        if criteria.search_date_start:
-            old_start = datetime.strptime(criteria.search_date_start, "%Y-%m-%d")
-            new_start = old_start.replace(year=confirmed_year)
-            criteria.search_date_start = new_start.strftime("%Y-%m-%d")
-            
-        if criteria.search_date_end:
-            old_end = datetime.strptime(criteria.search_date_end, "%Y-%m-%d")
-            # Handle leap years if applicable
-            try:
-                new_end = old_end.replace(year=confirmed_year)
-            except ValueError:
-                # E.g. Feb 29 on a non-leap year
-                from calendar import monthrange
-                last_day = monthrange(confirmed_year, old_end.month)[1]
-                new_end = old_end.replace(year=confirmed_year, day=last_day)
-                
-            criteria.search_date_end = new_end.strftime("%Y-%m-%d")
-
-        criteria.is_year_ambiguous = False
-        state["criteria"] = criteria
-
-        return f"Successfully updated the year to {confirmed_year}. Updated Dates: {criteria.search_date_start} to {criteria.search_date_end}"
-
-    tools = [extract_booking_criteria, resolve_ambiguous_year]
-
-    return (
-        tools,
-        lambda: {
-            "ready": state["transition_ready"],
-        },
-        lambda: state["criteria"],
+    new_criteria = await _get_extraction_llm().ainvoke(
+        [SystemMessage(content=_build_extraction_prompt(current_criteria, today))] + recent
     )
+
+    missing = new_criteria.get_missing_fields()
+    errors = new_criteria.validate_data()
+    is_year_ambiguous = new_criteria.is_year_ambiguous
+
+    parts = [f"Extracted: {json.dumps(new_criteria.model_dump(exclude_none=True), indent=2)}"]
+    if is_year_ambiguous:
+        parts.append("Year is ambiguous — please ask the user to confirm the year.")
+    if errors:
+        parts.append(f"Validation errors: {errors}")
+    if missing:
+        parts.append(f"Still missing: {', '.join(missing)}")
+
+    if new_criteria.is_ready():
+        parts.append("All required criteria collected!")
+
+    return Command(update={
+        "criteria": new_criteria,
+        "messages": [ToolMessage(content="\n".join(parts), tool_call_id=runtime.tool_call_id)],
+    })
+
+
+@tool
+def resolve_ambiguous_year(confirmed_year: int, runtime: ToolRuntime) -> Command:
+    """Call this tool ONLY when you have asked the user to confirm an ambiguous year
+    (e.g., asking if they meant 2027) and the user has confirmed or corrected it.
+    Pass the final, correct 4-digit year (e.g., 2027 or 2026) into this tool to
+    update the system and remove the ambiguity.
+    """
+    criteria = (runtime.state.get("criteria") or Criteria()).model_copy()
+
+    if not criteria.is_year_ambiguous:
+        return Command(update={
+            "messages": [ToolMessage(
+                content="Error: The year is not currently flagged as ambiguous.",
+                tool_call_id=runtime.tool_call_id,
+            )],
+        })
+
+    if criteria.search_date_start:
+        old_start = datetime.strptime(criteria.search_date_start, "%Y-%m-%d")
+        criteria.search_date_start = old_start.replace(year=confirmed_year).strftime("%Y-%m-%d")
+
+    if criteria.search_date_end:
+        old_end = datetime.strptime(criteria.search_date_end, "%Y-%m-%d")
+        try:
+            new_end = old_end.replace(year=confirmed_year)
+        except ValueError:
+            # E.g. Feb 29 on a non-leap year
+            last_day = monthrange(confirmed_year, old_end.month)[1]
+            new_end = old_end.replace(year=confirmed_year, day=last_day)
+        criteria.search_date_end = new_end.strftime("%Y-%m-%d")
+
+    criteria.is_year_ambiguous = False
+    result_str = f"Successfully updated the year to {confirmed_year}. Updated Dates: {criteria.search_date_start} to {criteria.search_date_end}"
+
+    return Command(update={
+        "criteria": criteria,
+        "messages": [ToolMessage(content=result_str, tool_call_id=runtime.tool_call_id)],
+    })
+
+
+booking_tools = [extract_booking_criteria, resolve_ambiguous_year]

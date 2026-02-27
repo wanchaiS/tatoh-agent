@@ -4,8 +4,9 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
 from typing import List
-import json
+from datetime import datetime
 
+from agent.types import GlobalState
 from agent.room_evaluation.schema import RoomEvaluationState
 from agent.criteria_discovery.schema import Criteria
 from agent.shared_tools import (
@@ -34,7 +35,7 @@ qa_tools = [
 ]
 
 
-def _build_system_prompt(room_evaluation_state: RoomEvaluationState, today: str) -> str:
+def build_system_prompt(room_evaluation_state: RoomEvaluationState, today: str) -> str:
     guest_meta_data = room_evaluation_state.guest_meta_data or "Not yet provided"
     selected_room_no = room_evaluation_state.selected_room_no or "Not yet selected"
     search_summary = room_evaluation_state.search_results_summary or "No summary available"
@@ -72,41 +73,27 @@ Use the following tools based on the user's intent:
 - THE SOFT CLOSE: Always end your conversational responses with a gentle call-to-action (e.g., "สนใจเป็นห้อง V1 หรือ S8 ดีคะ?", "รับเป็นห้องนี้เลยไหมคะ คูเปอร์จะได้เตรียมลิงก์จองให้").
 """
 
+# ── Static sub-graph on GlobalState ──────────────────────────────
+all_tools = qa_tools
+_model = ChatOpenAI(model="openai/gpt-5.1-instant", temperature=0)
+_llm_with_tools = _model.bind_tools(all_tools)
+_tool_node = ToolNode(all_tools, handle_tool_errors=True)
 
-# ── Public interface ───────────────────────────────────────────────
-async def run(
-    get_criteria: callable,
-    messages: List[BaseMessage],
-    today: str,
-    booking_tools: list,
-    config: RunnableConfig,
-) -> AIMessage:
-    """Run the discovery agent with Q&A + booking tools."""
-    all_tools = qa_tools + booking_tools
-    # anthropic/claude-haiku-4.5
-    model = ChatOpenAI(model="openai/gpt-5.1-instant", temperature=0)
-    llm_with_tools = model.bind_tools(all_tools)
-    tool_node = ToolNode(all_tools, handle_tool_errors=True)
+def _agent_node(state: GlobalState):
+    today = datetime.now().strftime("%Y-%m-%d")
+    room_evaluation_state = state.get("room_evaluation_state") or RoomEvaluationState()
+    system_prompt = build_system_prompt(room_evaluation_state, today)
+    response = _llm_with_tools.invoke(
+        [SystemMessage(content=system_prompt)] + state["messages"]
+    )
+    return {"messages": [response]}
 
-    def _agent_node(state: MessagesState):
-        current_criteria = get_criteria()
-        system_prompt = _build_system_prompt(current_criteria, today)
-        
-        response = llm_with_tools.invoke(
-            [SystemMessage(content=system_prompt)] + state["messages"]
-        )
-        return {"messages": [response]}
 
-    # Build sub-graph
-    builder = StateGraph(MessagesState)
-    builder.add_node("agent", _agent_node)
-    builder.add_node("tools", tool_node)
-    builder.add_edge(START, "agent")
-    builder.add_conditional_edges("agent", tools_condition)
-    builder.add_edge("tools", "agent")
-    graph = builder.compile()
+_builder = StateGraph(GlobalState)
+_builder.add_node("room_evaluation_agent", _agent_node)
+_builder.add_node("tools", _tool_node)
+_builder.add_edge(START, "room_evaluation_agent")
+_builder.add_conditional_edges("room_evaluation_agent", tools_condition)
+_builder.add_edge("tools", "room_evaluation_agent")
 
-    result = await graph.ainvoke({
-        "messages": messages
-    }, config=config)
-    return result["messages"][-1]
+room_evaluation_graph = _builder.compile()

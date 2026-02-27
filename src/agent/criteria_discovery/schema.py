@@ -13,6 +13,10 @@ class Criteria(BaseModel):
         if not date_str: return None
         try: return datetime.strptime(date_str, "%Y-%m-%d")
         except (ValueError, TypeError): return None
+    
+    def is_ready(self) -> bool:
+        """Check if the criteria is ready to be used for searching."""
+        return self.search_date_start is not None and self.search_date_end is not None and self.duration_nights is not None and self.total_guests is not None and self.is_year_ambiguous is False
         
     def get_expanded_windows(self, expanded_days: int) -> Tuple[str, str]:
         """
