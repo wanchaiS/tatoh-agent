@@ -14,19 +14,19 @@ async def criteria_discovery_node(state: GlobalState, config: RunnableConfig):
     sub_config = {**(config or {}), "recursion_limit": 10}
     result = await criteria_discovery_graph.ainvoke(state, config=sub_config)
 
-    criteria = result.get("criteria") or state.get("criteria") or Criteria()
+    criteria = result.get("criteria") or Criteria()
+    criteria_ready = result.get("criteria_ready", False)
+    criteria_confirmed = result.get("criteria_confirmed", False)
 
-    if criteria.is_ready():
-        return Command(
-            goto="room_searching_node",
-            update={
-                "criteria": criteria,
-                "phase": "room_searching",
-                "messages": [result["messages"][-1]],
-            },
-        )
-
-    return {
+    update = {
         "criteria": criteria,
+        "criteria_ready": criteria_ready,
+        "criteria_confirmed": criteria_confirmed,
+        "ui": result.get("ui"),
         "messages": [result["messages"][-1]],
     }
+
+    if criteria_confirmed:
+        return Command(goto="room_searching_node", update=update)
+
+    return update

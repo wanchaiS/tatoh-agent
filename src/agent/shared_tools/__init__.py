@@ -5,6 +5,7 @@ from agent.shared_tools.get_kohtao_current_weather import get_kohtao_current_wea
 from agent.shared_tools.get_kohtao_general_season import get_kohtao_general_season
 from agent.shared_tools.get_room_gallery import get_room_gallery
 from agent.shared_tools.get_room_info import get_room_info
+from agent.shared_tools.get_rooms_list import get_rooms_list
 from agent.shared_tools.no_tool_found import no_tool_found
 from agent.shared_tools.out_of_scope import out_of_scope
 from agent.shared_tools.ask_for_clarification import ask_for_clarification
@@ -18,6 +19,7 @@ __all__ = [
     "get_kohtao_general_season",
     "get_room_gallery",
     "get_room_info",
+    "get_rooms_list",
     "no_tool_found",
     "out_of_scope",
     "ask_for_clarification",

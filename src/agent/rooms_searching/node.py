@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from agent.rooms_searching.search_rooms import search_rooms, RunSearchResult
 from agent.criteria_discovery.schema import Criteria
+from agent.room_evaluation.schema import RoomEvaluationState
 
 async def room_searching_node(state: GlobalState):
     """
@@ -15,18 +16,18 @@ async def room_searching_node(state: GlobalState):
     it decide to go to evaluate options node or criteria discovery node based on the search result.
     """
     criteria = state.get("criteria")
-    validation_error = criteria.validate_data() if criteria else "Missing criteria"
-    if validation_error:
-        # Scream to the UI/logs that something bypassed discovery validation
-        # TODO fire UI event to show that unexpected error happend, can we reset the conversation?
-        # we should wait for user to say yes to reset the conversation, as of now we will just assume user say yes
-        error_msg = f"Unexpected error during criteria discovery: {validation_error}. Let's start over."
+    criteria_ready = state.get("criteria_ready")
+    criteria_confirmed = state.get("criteria_confirmed")
+    if not criteria_ready or not criteria_confirmed:
+        error_msg = f"Criteria not ready or confirmed something went wrong. Let's start over."
         return Command(
             goto="criteria_discovery_node",
             update={
                 "messages": [AIMessage(content=error_msg)],
-                "criteria": None,
-                "room_evaluation_state": None,
+                "criteria": Criteria(),
+                "room_evaluation_state": RoomEvaluationState(),
+                "criteria_ready": False,
+                "criteria_confirmed": False,
                 "phase": "criteria_discovery"
             }
         ) 
@@ -76,7 +77,7 @@ async def room_searching_node(state: GlobalState):
             goto=END,
             update={
                 "messages": [response],
-                "criteria": new_criteria, # clear dates so user is asked for new ones but keep guests/rooms
+                "criteria": new_criteria,
                 "phase": "criteria_discovery"
             }
         )
@@ -86,13 +87,13 @@ async def room_searching_node(state: GlobalState):
             goto=END,
             update={
                 "messages": [response],
-                "room_evaluation_state": {
-                    "current_criteria_id": criteria_id,
-                    "current_search_results": rooms_data,
-                    "expanded_days": search_result.expanded_days,
-                    "exhausted": search_result.exhausted,
-                    "search_results_summary": raw_summary
-                },
+                "room_evaluation_state": RoomEvaluationState(
+                    current_criteria_id=criteria_id,
+                    current_search_results=rooms_data,
+                    expanded_days=search_result.expanded_days,
+                    exhausted=search_result.exhausted,
+                    search_results_summary=raw_summary,
+                ),
                 "phase": "evaluate_options"
             }
         )

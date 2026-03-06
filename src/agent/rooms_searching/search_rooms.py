@@ -1,29 +1,15 @@
-import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Dict, Tuple
 
 from agent.utils.pms_client import get_room_availability
-from agent.utils.google_drive_client import read_spreadsheet_data
+from agent.services.room_service import room_service
 from agent.utils.date_utils import format_date_ranges
 
 from agent.criteria_discovery.schema import Criteria
 from agent.rooms_searching.schema import StayOption
 
-# Cache room metadata — read_spreadsheet_data takes ~4s, no need to call it on every search
-_METADATA_TTL = 600  # 10 minutes
 EXPANSION_STEPS = [0, 3, 5, 7]
-
-
-_room_metadata: list | None = None
-_room_metadata_expires_at: float = 0
-
-def _get_room_metadata() -> list:
-    global _room_metadata, _room_metadata_expires_at
-    if _room_metadata is None or time.time() > _room_metadata_expires_at:
-        _room_metadata = read_spreadsheet_data("/cooper-project/data/rooms_info")
-        _room_metadata_expires_at = time.time() + _METADATA_TTL
-    return _room_metadata
 
 
 # ── Domain types ───────────────────────────────────────────────────────────────
@@ -101,12 +87,12 @@ def _search_rooms_window(
 
     # PMS client is clipped strictly returning valid dates in [search_start, search_end)
     availability = get_room_availability(search_start_dt, search_end_dt).get("rooms", {})
-    room_metadata = _get_room_metadata()
+    room_metadata = room_service.get_all_rooms()
 
     candidates = []
 
     for meta in room_metadata:
-        room_no = meta["room_name"].lower()
+        room_no = meta.room_name.lower()
         raw = availability.get(room_no)
         if not raw:
             continue
@@ -121,15 +107,15 @@ def _search_rooms_window(
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
-def _build_candidate(raw: dict, meta: dict, room_no: str) -> dict:
+def _build_candidate(raw: dict, meta, room_no: str) -> dict:
     """Merge PMS availability data with room metadata."""
     return {
         **raw,
         "room_no": room_no,
-        "price_weekdays": meta["price_weekdays"],
-        "price_weekends": meta["price_weekends_holidays"],
-        "price_ny_songkran": meta["price_ny_songkran"],
-        "max_guests": int(meta["max_guests"]),
+        "price_weekdays": meta.price_weekdays,
+        "price_weekends": meta.price_weekends_holidays,
+        "price_ny_songkran": meta.price_ny_songkran,
+        "max_guests": meta.max_guests,
     }
 
 def _finalize_candidates(candidates: list, guests: int) -> List[RoomCard]:

@@ -1,43 +1,13 @@
-from typing import Annotated, Literal, Optional, Any
+from typing import Annotated, Literal, Optional, Union, Sequence
 from pydantic import BaseModel
 from langgraph.graph import MessagesState
+from langgraph.graph.ui import AnyUIMessage, ui_message_reducer
 
 from agent.criteria_discovery.schema import Criteria
 from agent.room_evaluation.schema import RoomEvaluationState
 
-def update_room_evaluation_state(left: Optional[RoomEvaluationState], right: Optional[Any]) -> RoomEvaluationState:
-    """merge new room evaluation state into existing state"""
-    if left is None:
-        left = RoomEvaluationState()
-    if right is None:
-        return left
-    
-    # Handle dict updates or full model updates
-    new_data = right if isinstance(right, dict) else right.model_dump(exclude_unset=True)
-    
-    # Merge values into the current model
-    current_data = left.model_dump()
-    current_data.update(new_data)
-    
-    return RoomEvaluationState.model_validate(current_data)
 
-def update_criteria(left: Optional[Criteria], right: Optional[Any]) -> Criteria:
-    """merge new criteria discovery state into existing state"""
-    if left is None:
-        left = Criteria()
-    if right == "clear":
-        return Criteria()
-    if right is None:
-        return left
-    
-    # Handle dict updates or full model updates
-    new_data = right if isinstance(right, dict) else right.model_dump(exclude_unset=True)
-    
-    # Merge values into the current model
-    current_data = left.model_dump()
-    current_data.update(new_data)
-    
-    return Criteria.model_validate(current_data)
+# ── Phase ──────────────────────────────────────────────────────────────────────
 
 Phase = Literal["criteria_discovery",
                   "room_searching",
@@ -48,5 +18,8 @@ Phase = Literal["criteria_discovery",
 
 class GlobalState(MessagesState):
     phase: Phase
-    criteria: Annotated[Criteria, update_criteria]
-    room_evaluation_state: Annotated[RoomEvaluationState, update_room_evaluation_state]
+    criteria: Criteria
+    criteria_ready: bool
+    criteria_confirmed: bool
+    room_evaluation_state: RoomEvaluationState
+    ui: Annotated[Sequence[AnyUIMessage], ui_message_reducer]
