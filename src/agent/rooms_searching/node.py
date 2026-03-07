@@ -2,13 +2,13 @@ import asyncio
 from typing import Dict, Any
 from langgraph.types import Command
 from langgraph.graph import END
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 
 from agent.types import GlobalState
-from langchain_core.messages import AIMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 from agent.rooms_searching.search_rooms import search_rooms, RunSearchResult
 from agent.criteria_discovery.schema import Criteria
-from agent.room_evaluation.schema import RoomEvaluationState
+from agent.rooms_searching.schema import RoomSearchResult
 
 async def room_searching_node(state: GlobalState):
     """
@@ -25,14 +25,13 @@ async def room_searching_node(state: GlobalState):
             update={
                 "messages": [AIMessage(content=error_msg)],
                 "criteria": Criteria(),
-                "room_evaluation_state": RoomEvaluationState(),
+                "room_search_result": None,
                 "criteria_ready": False,
                 "criteria_confirmed": False,
                 "phase": "criteria_discovery"
             }
         ) 
     
-
     # check if criteria id has changed or it's a new criteria id (first search)
     new_criteria_id = criteria.get_criteria_id()
     evaluation_state = state.get("room_evaluation_state")
@@ -44,9 +43,6 @@ async def room_searching_node(state: GlobalState):
 
     # Run blocking search in a separate thread
     search_result = await asyncio.to_thread(search_rooms, criteria)
-    
-    rooms_data = search_result.rooms
-    criteria_id = search_result.criteria_id
     
     # Generate raw facts for agent state
     raw_summary = _build_search_results_summary(search_result, criteria)
@@ -62,15 +58,24 @@ async def room_searching_node(state: GlobalState):
         f"Search Results Facts:\n{raw_summary}"
     )
     
-    # We pass the conversation history so the LLM knows the language and context
-    messages = state.get("messages", [])
-    response = await llm.ainvoke([SystemMessage(content=system_prompt)] + messages[-3:]) # just the recent context is enough
+    # Extract the last human message for language detection
+    last_human_text = ""
+    for msg in reversed(state.get("messages", [])):
+        if isinstance(msg, HumanMessage):
+            last_human_text = msg.content
+            break
+
+    system_prompt += f"\n\nUser's last message (for language reference only): \"{last_human_text}\""
+
+    response = await llm.ainvoke([
+        SystemMessage(content=system_prompt),
+        HumanMessage(content="Please summarize the room search results."),
+    ])
     
-    if not rooms_data:
+    if not search_result.rooms:
          # No rooms found case: Transition back to discovery phase so user can adjust criteria
          new_criteria = criteria.model_copy()
-         new_criteria.search_date_start = None
-         new_criteria.search_date_end = None
+         new_criteria.date_windows = []
          new_criteria.duration_nights = None
          
          return Command(
@@ -78,6 +83,15 @@ async def room_searching_node(state: GlobalState):
             update={
                 "messages": [response],
                 "criteria": new_criteria,
+                "criteria_ready": False,
+                "criteria_confirmed": False,
+                "room_search_result": RoomSearchResult(
+                    criteria_id=search_result.criteria_id,
+                    rooms=[],
+                    expanded_days=search_result.expanded_days,
+                    exhausted=search_result.exhausted,
+                    search_results_summary=raw_summary,
+                ),
                 "phase": "criteria_discovery"
             }
         )
@@ -87,9 +101,9 @@ async def room_searching_node(state: GlobalState):
             goto=END,
             update={
                 "messages": [response],
-                "room_evaluation_state": RoomEvaluationState(
-                    current_criteria_id=criteria_id,
-                    current_search_results=rooms_data,
+                "room_search_result": RoomSearchResult(
+                    criteria_id=search_result.criteria_id,
+                    rooms=search_result.rooms,
                     expanded_days=search_result.expanded_days,
                     exhausted=search_result.exhausted,
                     search_results_summary=raw_summary,
@@ -111,9 +125,15 @@ def _build_search_results_summary(search_result: RunSearchResult, criteria: Crit
     summary = []
     
     # Header
-    summary.append(f"Search Original Date: {criteria.search_date_start} - {criteria.search_date_end}")
+    original_windows_str = ", ".join(f"{w.start_date} to {w.end_date}" for w in criteria.date_windows)
+    summary.append(f"Search Original Date Windows: {original_windows_str}")
     summary.append(f"Expanded search by +-{expanded_days} days" if expanded_days > 0 else "No expansion used")
-    summary.append(f"Search expanded date range: {criteria.get_expanded_windows(expanded_days) if expanded_days > 0 else 'No expansion used'}")
+    
+    if expanded_days > 0:
+        expanded_windows_str = ", ".join(f"{st} to {en}" for (st, en) in criteria.get_expanded_windows(expanded_days))
+        summary.append(f"Search expanded date range: {expanded_windows_str}")
+    else:
+        summary.append("Search expanded date range: No expansion used")
     summary.append(f"Exhausted: {exhausted}")
     summary.append("")
     

@@ -171,8 +171,8 @@ def update_criteria(
         parts.append(f"Still missing: {', '.join(missing)}")
     else:
         parts.append(
-            "All criteria ready. Present a natural summary of the booking criteria to the user "
-            "and wait for their explicit confirmation before calling confirm_search."
+            "All criteria ready. Present a natural, friendly summary of the booking criteria "
+            "to the user and ask for their confirmation."
         )
 
     # update criteria and set validation result

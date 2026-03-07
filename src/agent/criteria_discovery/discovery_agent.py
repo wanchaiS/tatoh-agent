@@ -18,7 +18,6 @@ from agent.shared_tools import (
     get_rooms_list,
 )
 from agent.criteria_discovery.tools.update_criteria import update_criteria
-from agent.criteria_discovery.tools.confirm_search import confirm_search
 
 # ── Shared Q&A tools (always available) ──────────────────────────
 qa_tools = [
@@ -33,16 +32,28 @@ qa_tools = [
 ]
 
 
-def build_system_prompt(criteria: Criteria, today: str) -> str:
+def build_system_prompt(criteria: Criteria, today: str, *, pending_confirmation: bool = False) -> str:
     criteria_summary = json.dumps(criteria.model_dump(exclude_none=True), indent=2)
     criteria_summary = criteria_summary if criteria_summary != "{}" else "None yet."
+
+    confirmation_note = ""
+    if pending_confirmation:
+        confirmation_note = (
+            "\nConfirmation Status: PENDING — All criteria were ready and the user was already shown "
+            "the booking summary and asked to confirm, but their latest message was not a clear 'yes'. "
+            "They may want to change something, ask a question, or said something unrelated. "
+            "Respond naturally: if they want changes, use `update_criteria`; if they ask a question, answer it; "
+            "if unrelated, answer briefly and steer back. "
+            "IMPORTANT: Do NOT re-present the full booking summary — it was already shown to the user. "
+            "Just handle their message and end with a brief one-liner like 'ยืนยันได้เลยนะคะเมื่อพร้อมค่ะ'."
+        )
 
     return f"""You are Cooper (คูเปอร์), the welcoming first point of contact for Tatoh Resort (ตาโต๊ะรีสอร์ท), Koh Tao.
 Address the user kindly as "คุณลูกค้า" when speaking Thai.
 
 [CONTEXT]
 Today's Date: {today}
-Current Booking State: {criteria_summary}
+Current Booking State: {criteria_summary}{confirmation_note}
 
 [CORE DIRECTIVE]
 Your primary goal is TO GATHER INFORMATION and answer questions. You must collect all booking criteria before we can check room availability.
@@ -55,8 +66,7 @@ You are responsible for orchestrating tools. You can call multiple tools in the 
    - YOU are responsible for resolving dates to YYYY-MM-DD before calling the tool. See [DATE RESOLUTION] below.
    - date_windows is a list — you can pass multiple windows in one call.
 
-2. CONFIRMING THE SEARCH: When `update_criteria` returns "All criteria ready...", present a friendly, natural summary of the booking criteria to the user and ask for their confirmation. Once the user explicitly confirms (e.g., "ใช่ค่ะ", "ตกลง", "ok"), call `confirm_search`. Do NOT call `confirm_search` speculatively.
-   - If the user replies with missing info (e.g., duration) AND confirms in the same message, call `update_criteria` first, then `confirm_search` in the same turn.
+2. WHEN ALL CRITERIA ARE READY: When `update_criteria` returns "All criteria ready...", present a friendly, natural summary of the booking criteria to the user and ask for their confirmation. The system will handle the user's confirmation response automatically — you do NOT need to do anything special when they confirm.
 
 3. RESORT Q&A: Use your specific lookup tools for room details, prices, policies, amenities, and activities. NEVER use pre-trained knowledge for resort facts.
 
@@ -100,7 +110,7 @@ DATE EXPRESSION EXAMPLES:
   → update_criteria(date_windows=[{{start_date:"2026-07-15", end_date:"2026-07-20"}}], duration_nights=2, total_guests=2, requested_rooms=["s8","s9"])
   (window is 5 days, duration is 2 — the system searches for any 2-night slot within Jul 15-20)
 
-- "วันที่ 25-28" (today is {today})
+- "วันที่ 25-28" (suppose today is 2026-03-05)
   → update_criteria(date_windows=[{{start_date:"2026-03-25", end_date:"2026-03-28"}}], duration_nights=3)
   (tight range, no duration stated → infer 3 nights)
 
@@ -148,7 +158,7 @@ You MUST act like a human receptionist, not a robot or a system form.
 
 
 # ── Static sub-graph on GlobalState ──────────────────────────────
-all_tools = qa_tools + [update_criteria, confirm_search]
+all_tools = qa_tools + [update_criteria]
 _model = ChatOpenAI(model="openai/gpt-5.1-instant", temperature=0)
 _llm_with_tools = _model.bind_tools(all_tools)
 _tool_node = ToolNode(all_tools, handle_tool_errors=True)
@@ -157,7 +167,8 @@ _tool_node = ToolNode(all_tools, handle_tool_errors=True)
 def _agent_node(state: GlobalState):
     today = datetime.now().strftime("%Y-%m-%d")
     criteria = state.get("criteria") or Criteria()
-    system_prompt = build_system_prompt(criteria, today)
+    pending_confirmation = state.get("criteria_ready", False) and not state.get("criteria_confirmed", False)
+    system_prompt = build_system_prompt(criteria, today, pending_confirmation=pending_confirmation)
     response = _llm_with_tools.invoke(
         [SystemMessage(content=system_prompt)] + state["messages"]
     )

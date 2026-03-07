@@ -8,7 +8,6 @@ from agent.room_evaluation.node import room_evaluation_node
 
 def get_node_by_phase(state: GlobalState):
     phase = state.get("phase") or "criteria_discovery"
-
     phase_map = {
         "criteria_discovery": "criteria_discovery_node",
         "room_searching": "room_searching_node",
@@ -17,30 +16,24 @@ def get_node_by_phase(state: GlobalState):
         "contact_info_collection": "contact_info_collection_node",
         "summarize_booking": "summarize_booking_node"
     }
-
     node = phase_map.get(phase)
-
-    # should never happen
     if not node:
         raise ValueError(f"Invalid phase: {phase}")
-
     return node
+
 
 graph_builder = StateGraph(GlobalState)
 
-# 1. Add Nodes
 graph_builder.add_node("criteria_discovery_node", criteria_discovery_node)
 graph_builder.add_node("room_searching_node", room_searching_node)
 graph_builder.add_node("room_evaluation_node", room_evaluation_node)
 
-# 2. Define Edges
 graph_builder.add_conditional_edges(START, get_node_by_phase, {
         "criteria_discovery_node": "criteria_discovery_node",
         "room_searching_node": "room_searching_node",
         "room_evaluation_node": "room_evaluation_node"
     })
 
-# After sub-graphs finish, they go to END
 graph_builder.add_edge("room_evaluation_node", END)
 
 graph = graph_builder.compile()

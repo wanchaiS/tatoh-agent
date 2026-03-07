@@ -1,53 +1,35 @@
 from datetime import datetime
-from typing import List, Tuple, Dict, Optional
-from dataclasses import dataclass
+from typing import List
+from pydantic import BaseModel, Field
 
+class AvailableDate(BaseModel):
+    start_date: str = Field(..., description="Start of the available date (YYYY-MM-DD).")
+    end_date: str = Field(..., description="End of the available date (YYYY-MM-DD).")
 
-@dataclass
-class Rates:
+    def window_days(self) -> int:
+        """Total span of this window in days."""
+        start = datetime.strptime(self.start_date, "%Y-%m-%d")
+        end = datetime.strptime(self.end_date, "%Y-%m-%d")
+        return (end - start).days
+
+class Rates(BaseModel):
     weekday: float
     weekend: float
     holiday: float
 
-@dataclass
-class PriceBreakdownItem:
-    tier: str       # "Weekday" | "Weekend" | "Holiday"
-    nights: int
-    rate: float
-    date: datetime
-    subtotal: float
-
-@dataclass
-class ExtraBedInfo:
-    nights: int
-    rate: float = 700
-    subtotal: float = 0
-
-    def __post_init__(self):
-        self.subtotal = self.nights * self.rate
-
-@dataclass
-class StayPricing:
-    total_price: float
-    breakdown: List[PriceBreakdownItem]
-    extra_bed: Optional[ExtraBedInfo] = None
-
-@dataclass
-class StayLeg:
+class Room(BaseModel):
     room_no: str
     room_type: str
     max_guests: int
-    requested_guests: int
-    from_to_dates: List[Tuple[str, str]]
+    available_dates: List[AvailableDate]
     nightly_rates: Rates
     extra_bed_required: bool = False
-    # pricing: StayPricing
 
-@dataclass
-class StayOption:
-    is_split_stay: bool
-    legs: List[StayLeg]
-    total_price: float
-
+class RoomSearchResult(BaseModel):
+    rooms: List[Room]
+    criteria_id: str
+    expanded_days: int
+    exhausted: bool
+    search_results_summary: str
 
 

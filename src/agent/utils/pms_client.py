@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Find the project root (where .env should be)
-_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 _ENV_PATH = os.path.join(_ROOT_DIR, ".env")
 
 # Load environment variables
@@ -119,63 +119,24 @@ def login():
             _update_env_file("PMS_ACCESS_TOKEN", token)
 
 # TODO: Async Migration - Convert this function to `async def` and `await` the internal network calls.
-def get_room_availability(start_date: datetime, end_date: datetime) -> Dict[str, Any]:
+def fetch_room_availability_window(start_date: str) -> Dict[str, Any]:
     """
-    Fetches room availability from the PMS within the given [start_date, end_date) window.
-    It handles fetching multiple 14-day windows automatically to cover the range.
+    Fetches a single 14-day window of room availability from the PMS, starting from start_date.
+    The response is not clipped, returning exactly what the PMS returns.
     """
     try:
-        # Restrict search window to max 31 days
-        if (end_date - start_date).days > 31:
-            raise ValueError("Search window exceeds the maximum allowed duration of 31 days.")
-
-        # Fetch availability from PMS in windows
-        start_dates = _get_start_dates(start_date, end_date)
-        merged_rooms = {} 
-
-        for start_date_str in start_dates:
-
-            parsed_response = _fetch_room_availability(start_date_str)
-
-            for room_no, avail_info in parsed_response.get('rooms', {}).items():
-                dates = avail_info.get('dates', [])
-                if room_no not in merged_rooms:
-                    # Convert list back to set for merging
-                    merged_rooms[room_no] = {**avail_info, "dates": set(dates)}
-                else:
-                    merged_rooms[room_no]["dates"].update(dates)
-
-        # Generate valid dates within the [start_date, end_date) window
-        num_days = (end_date - start_date).days
-        valid_dates = {(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(num_days)}
-
-        # Finalize rooms (convert sets back to sorted lists)
-        for room_info in merged_rooms.values():
-            filtered_dates = room_info['dates'].intersection(valid_dates)
-            room_info['dates'] = sorted(list(filtered_dates))
-
-        return {
-            "from": start_date.strftime('%Y-%m-%d'),
-            "to": end_date.strftime('%Y-%m-%d'),
-            "rooms": merged_rooms,
-        }
-
+        url = f"{_state['base_url']}/calendar/detail/{start_date}"
+        api_response = make_request(
+            session=_state["session"],
+            method="GET",
+            url=url,
+            login_cb=login
+        )
+        parsed_response = _parse_response(api_response)
+        return parsed_response
     except Exception as e:
         logger.error(f"Unexpected error occured during room availability search: {e}")
         raise e
-
-def _fetch_room_availability(start_date: str) -> Dict[str, Any]:
-    """Internal helper to fetch a single 14-day window."""
-    
-    url = f"{_state['base_url']}/calendar/detail/{start_date}"
-    api_response = make_request(
-        session=_state["session"],
-        method="GET",
-        url=url,
-        login_cb=login
-    )
-    parsed_response = _parse_response(api_response)
-    return parsed_response
 
 def _parse_response(response: Dict[str, Any]) -> Dict[str, Any]:
     received_version = response.get('version', '1.0')
@@ -251,24 +212,3 @@ def _parse_response(response: Dict[str, Any]) -> Dict[str, Any]:
             raise Exception(error_msg)
         raise e
 
-
-def _get_start_dates(start_date: datetime, end_date: datetime) -> List[str]:
-    """
-    Api returns 14 days from start_date.
-    Returns list of start_dates to call the API to cover the entire stay.
-    """
-    fetch_dates = []
-    # Use exact start date provided
-    current_start = start_date
-    fetch_dates.append(current_start.strftime('%Y-%m-%d'))
-    
-    # If the stay extends beyond 14 days from initial start, add more dates
-    stay_end = end_date
-    window_end = current_start + timedelta(days=14)
-    
-    while window_end < stay_end:
-        current_start = window_end
-        fetch_dates.append(current_start.strftime('%Y-%m-%d'))
-        window_end = current_start + timedelta(days=14)
-        
-    return fetch_dates

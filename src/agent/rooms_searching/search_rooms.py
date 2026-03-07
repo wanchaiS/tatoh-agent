@@ -1,92 +1,87 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, TypedDict
 
-from agent.utils.pms_client import get_room_availability
+from agent.utils.pms_client import fetch_room_availability_window
 from agent.services.room_service import room_service
-from agent.utils.date_utils import format_date_ranges
+from agent.services.room_service import room_service
 
 from agent.criteria_discovery.schema import Criteria
-from agent.rooms_searching.schema import StayOption
+from agent.services.room_availability import RoomAvailabilityService, RoomAvailabilityData
+from agent.rooms_searching.schema import Room, AvailableDate, Rates
 
 EXPANSION_STEPS = [0, 3, 5, 7]
 
 
 # ── Domain types ───────────────────────────────────────────────────────────────
 
-@dataclass
-class RoomCard:
+@dataclass(slots=True)
+class RoomCandidate:
+    """Raw candidate room from PMS crossed with local Room metadata and computed comboss."""
+    room_id: str
     room_no: str
-    room_type: str
+    room_type_id: str
+    room_type_name: str
+    dates: List[str]
+    price_weekdays: float
+    price_weekends: float
+    price_ny_songkran: float
     max_guests: int
-    requested_guests: int 
-    available_ranges: List[str]
-    nightly_rates: Dict[str, int]
-    extra_bed_required: bool = False
+    all_combos: List[List[str]] = None
+    date_set: set = None
+
 
 @dataclass
 class RunSearchResult:
-    rooms: List[RoomCard]
+    rooms: List[Room]
     expanded_days: int
     exhausted: bool
     criteria_id: str
 
 # ── Public entry point ─────────────────────────────────────────────────────────
-
-# TODO: Async Migration - Once `pms_client.get_room_availability` is converted to an `async def`,
-# this core `search_rooms` orchestration loop should also become `async def` and `await` the PMS client.
 def search_rooms(criteria: Criteria) -> RunSearchResult:
     """
-    Search rooms with automatic window expansion.
+    Search rooms with automatic window expansion across multiple date windows.
     Returns rooms.
     """
-    duration = criteria.duration_nights or 1
-    
-    # search_date_start/end is the single source of truth.
-    # For exact mode, auto_fill() sets these from check_in/out.
-    # For flexible mode, the user provides them directly.
-    base_start_str = criteria.search_date_start
-    base_end_str = criteria.search_date_end
-    
-    if not base_start_str or not base_end_str:
-        return RunSearchResult(rooms=[], expanded_days=0, exhausted=True, criteria_id=criteria.get_criteria_id())
-        
-    start_dt = datetime.strptime(base_start_str, "%Y-%m-%d")
-    end_dt = datetime.strptime(base_end_str, "%Y-%m-%d")
 
-    rooms = []
+    room_availability_service = RoomAvailabilityService()
     
     for shift in EXPANSION_STEPS:
-        curr_start = start_dt - timedelta(days=shift)
-        curr_end = end_dt + timedelta(days=shift)
+        all_candidates = []
         
-        rooms = _search_rooms_window(
-            guests=criteria.total_guests or 1,
-            search_start=curr_start.strftime("%Y-%m-%d"),
-            search_end=curr_end.strftime("%Y-%m-%d"),
-            duration_nights=duration
-        )
-        
-        if rooms:
-            return RunSearchResult(rooms=rooms, expanded_days=shift, exhausted=False, criteria_id=criteria.get_criteria_id())
+        # criteria.get_expanded_windows returns list of (start_str, end_str) tuples
+        for window_start, window_end in criteria.get_expanded_windows(shift):
+            
+            candidates = _search_rooms_window_candidates(
+                availability_service=room_availability_service,
+                search_start=window_start,
+                search_end=window_end,
+            )
+            all_candidates.extend(candidates)
+            
+        if all_candidates:
+            # Group all the raw candidates collected, merge their dates, and build valid combos
+            rooms = _finalize_candidates(all_candidates, criteria.total_guests or 1, criteria.duration_nights or 1)
+            if rooms:
+                return RunSearchResult(rooms=rooms, expanded_days=shift, exhausted=False, criteria_id=criteria.get_criteria_id())
 
-    return RunSearchResult(rooms=rooms, expanded_days=EXPANSION_STEPS[-1], exhausted=True, criteria_id=criteria.get_criteria_id())
+    return RunSearchResult(rooms=[], expanded_days=EXPANSION_STEPS[-1], exhausted=True, criteria_id=criteria.get_criteria_id())
 
-def _search_rooms_window(
-    guests: int,
+def _search_rooms_window_candidates(
+    availability_service: RoomAvailabilityService,
     search_start: str,
     search_end: str,
-    duration_nights: int = 1,
-) -> List[RoomCard]:
+) -> List[RoomCandidate]:
     """
-    Search available rooms within a given search window.
+    Search available rooms within a given search window and return raw candidates.
     Only returns rooms that have consecutive availability for at least `duration_nights`.
     """
     search_start_dt = datetime.strptime(search_start, "%Y-%m-%d")
     search_end_dt = datetime.strptime(search_end, "%Y-%m-%d")
 
-    # PMS client is clipped strictly returning valid dates in [search_start, search_end)
-    availability = get_room_availability(search_start_dt, search_end_dt).get("rooms", {})
+    # Tracker fetches dynamically and returns strictly clipped dates
+    availability = availability_service.get_availability(search_start_dt, search_end_dt)
     room_metadata = room_service.get_all_rooms()
 
     candidates = []
@@ -98,44 +93,54 @@ def _search_rooms_window(
             continue
 
         candidate = _build_candidate(raw, meta, room_no)
-        candidate["all_combos"] = _build_date_combos(candidate["dates"], duration_nights)
+        candidates.append(candidate)
 
-        if candidate["all_combos"]:
-            candidates.append(candidate)
-
-    return _finalize_candidates(candidates, guests)
+    return candidates
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
-def _build_candidate(raw: dict, meta, room_no: str) -> dict:
+def _build_candidate(raw: RoomAvailabilityData, meta, room_no: str) -> RoomCandidate:
     """Merge PMS availability data with room metadata."""
-    return {
-        **raw,
-        "room_no": room_no,
-        "price_weekdays": meta.price_weekdays,
-        "price_weekends": meta.price_weekends_holidays,
-        "price_ny_songkran": meta.price_ny_songkran,
-        "max_guests": meta.max_guests,
-    }
+    return RoomCandidate(
+        room_id=raw["room_id"],
+        room_no=room_no,
+        room_type_id=raw["room_type_id"],
+        room_type_name=raw["room_type_name"],
+        dates=raw["dates"],
+        price_weekdays=meta.price_weekdays,
+        price_weekends=meta.price_weekends_holidays,
+        price_ny_songkran=meta.price_ny_songkran,
+        max_guests=meta.max_guests,
+        all_combos=[],
+        date_set=set()
+    )
 
-def _finalize_candidates(candidates: list, guests: int) -> List[RoomCard]:
-    """Group and attach available date ranges for rooms."""
-    grouped = _group_by_type_and_dates(candidates)
-    return [_to_room_card(c, guests) for c in grouped]
+def _finalize_candidates(candidates: List[RoomCandidate], guests: int, duration: int) -> List[Room]:
+    """Merge raw available dates for each room and build Room."""
+    merged = _merge_candidates_by_room(candidates, duration)
+    return [_to_room(c, guests) for c in merged]
 
-def _to_room_card(room: dict, guests: int) -> RoomCard:
-    extra_bed_req = guests > room.get("max_guests", 0)
-    return RoomCard(
-        room_no=room.get("room_no", "N/A").upper(),
-        room_type=room.get("room_type_name", "Unknown"),
-        max_guests=room.get("max_guests", 0),
-        requested_guests=guests,
-        available_ranges=format_date_ranges(room["all_combos"]),
-        nightly_rates={
-            "weekday": int(room.get("price_weekdays", 0)),
-            "weekend": int(room.get("price_weekends", 0)),
-            "holiday": int(room.get("price_ny_songkran", 0)),
-        },
+def _to_room(room: RoomCandidate, guests: int) -> Room:
+    extra_bed_req = guests > room.max_guests
+    
+    available_dates = []
+    for combo in room.all_combos or []:
+        if combo:
+            available_dates.append(AvailableDate(
+                start_date=combo[0],
+                end_date=combo[-1]
+            ))
+            
+    return Room(
+        room_no=room.room_no.upper(),
+        room_type=room.room_type_name,
+        max_guests=room.max_guests,
+        available_dates=available_dates,
+        nightly_rates=Rates(
+            weekday=float(room.price_weekdays),
+            weekend=float(room.price_weekends),
+            holiday=float(room.price_ny_songkran),
+        ),
         extra_bed_required=extra_bed_req,
     )
 
@@ -162,18 +167,26 @@ def _build_date_combos(dates: list, duration: int) -> List[List[str]]:
 
 # ── Grouping ───────────────────────────────────────────────────────────────────
 
-def _group_by_type_and_dates(candidates: list) -> list:
-    """Merge rooms of the same type with identical availability into one card."""
-    grouped: Dict[tuple, dict] = {}
+def _merge_candidates_by_room(candidates: List[RoomCandidate], duration: int) -> List[RoomCandidate]:
+    """Merge raw dates for the exact same room across different search windows, then build valid combos."""
+    merged: Dict[str, RoomCandidate] = {}
+    
     for c in candidates:
-        key = (c["room_type_id"], tuple(tuple(combo) for combo in c["all_combos"]))
-        if key not in grouped:
-            grouped[key] = {**c, "room_nos": [c["room_no"]]}
+        room_no = c.room_no
+        if room_no not in merged:
+            import copy
+            merged[room_no] = copy.copy(c)
+            merged[room_no].date_set = set(c.dates)
         else:
-            grouped[key]["room_nos"].append(c["room_no"])
-
+            merged[room_no].date_set.update(c.dates)
+            
+    # Calculate combinations on the merged raw dates
     result = []
-    for item in grouped.values():
-        item["room_no"] = ", ".join(sorted(item["room_nos"]))
-        result.append(item)
+    for item in merged.values():
+        unique_dates = list(item.date_set)
+        combos = _build_date_combos(unique_dates, duration)
+        if combos:
+            item.all_combos = combos
+            result.append(item)
+        
     return result
