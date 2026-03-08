@@ -34,12 +34,12 @@ async def room_searching_node(state: GlobalState):
     
     # check if criteria id has changed or it's a new criteria id (first search)
     new_criteria_id = criteria.get_criteria_id()
-    evaluation_state = state.get("room_evaluation_state")
-    current_criteria_id = getattr(evaluation_state, "current_criteria_id", None) if evaluation_state else None
+    closing_state = state.get("closing_state")
+    current_criteria_id = getattr(closing_state, "current_criteria_id", None) if closing_state else None
     
     # safety net: this shouldnt happen since this node is only called when criteria id has changed or it's a new criteria id (first search)
     if new_criteria_id == current_criteria_id:
-        return Command(goto="evaluate_options_node")
+        return Command(goto="closing_node")
 
     # Run blocking search in a separate thread
     search_result = await asyncio.to_thread(search_rooms, criteria)
@@ -62,7 +62,14 @@ async def room_searching_node(state: GlobalState):
     last_human_text = ""
     for msg in reversed(state.get("messages", [])):
         if isinstance(msg, HumanMessage):
-            last_human_text = msg.content
+            content = msg.content
+            if isinstance(content, str):
+                last_human_text = content
+            elif isinstance(content, list):
+                last_human_text = " ".join(
+                    blk.get("text", "") if isinstance(blk, dict) and blk.get("type") == "text" else str(blk) 
+                    for blk in content
+                )
             break
 
     system_prompt += f"\n\nUser's last message (for language reference only): \"{last_human_text}\""
@@ -108,7 +115,7 @@ async def room_searching_node(state: GlobalState):
                     exhausted=search_result.exhausted,
                     search_results_summary=raw_summary,
                 ),
-                "phase": "evaluate_options"
+                "phase": "closing"
             }
         )
 

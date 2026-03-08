@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 class AvailableDate(BaseModel):
@@ -33,3 +33,22 @@ class RoomSearchResult(BaseModel):
     search_results_summary: str
 
 
+class PriceBreakdownItem(BaseModel):
+    tier: str
+    nights: int
+    rate: float
+    subtotal: float
+
+class ExtraBedInfo(BaseModel):
+    nights: int
+    rate_per_night: float = 500.0
+    subtotal: float = 0.0
+
+    def model_post_init(self, __context):
+        if self.subtotal == 0:
+            object.__setattr__(self, 'subtotal', self.nights * self.rate_per_night)
+
+class StayPricing(BaseModel):
+    total_price: float
+    breakdown: List[PriceBreakdownItem]
+    extra_bed: Optional[ExtraBedInfo] = None
