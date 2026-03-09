@@ -3,7 +3,7 @@ import uuid
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AnyMessage
+from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -17,7 +17,7 @@ class RunInput(BaseModel):
 
 def _serialize(obj: object) -> object:
     """Make LangGraph output JSON-serializable."""
-    if isinstance(obj, AnyMessage):
+    if isinstance(obj, BaseMessage):
         return obj.model_dump(mode="json")
     if isinstance(obj, BaseModel):
         return obj.model_dump(mode="json")
