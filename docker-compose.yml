@@ -1,0 +1,12 @@
+services:
+  tatoh-db:
+    image: postgres:16
+    ports:
+      - "5431:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
