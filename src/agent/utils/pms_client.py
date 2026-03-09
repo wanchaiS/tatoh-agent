@@ -5,10 +5,14 @@ import requests
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, TypedDict, NotRequired
-from utils.http_client import make_request
+from agent.utils.http_client import make_request
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 # Find the project root (where .env should be)
-_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 _ENV_PATH = os.path.join(_ROOT_DIR, ".env")
 
 # Load environment variables
@@ -24,7 +28,7 @@ _state = {
     "token": os.getenv("PMS_ACCESS_TOKEN"),
     "token_expiry": 0,
     "lock": threading.Lock(),
-    "base_url": os.getenv("PMS_BASE_URL", "https://pms-api.hoteliers.guru/api").rstrip("/"),
+    "base_url": os.getenv("PMS_BASE_URL").rstrip("/"),
     "hotel_code": os.getenv("PMS_HOTEL_CODE"),
     "username": os.getenv("PMS_USERNAME"),
     "password": os.getenv("PMS_PASSWORD"),
@@ -39,7 +43,7 @@ if _state["token"]:
 else:
     print("PMS Module: No token found in environment on startup.")
 
-EXPECTED_PMS_VERSION = "1.61"
+EXPECTED_PMS_VERSION = "1.62"
 
 def _update_env_file(key: str, value: str):
     """
@@ -114,28 +118,32 @@ def login():
         if token:
             _update_env_file("PMS_ACCESS_TOKEN", token)
 
-# --- Public API Functions ---
-
-def get_room_availability(start_date: str) -> Dict[str, Any]:
+# TODO: Async Migration - Convert this function to `async def` and `await` the internal network calls.
+def fetch_room_availability_window(start_date: str) -> Dict[str, Any]:
     """
-    Fetches room availability from the PMS starting from the given date.
-    Returns availability for a 14-day window.
+    Fetches a single 14-day window of room availability from the PMS, starting from start_date.
+    The response is not clipped, returning exactly what the PMS returns.
     """
-    url = f"{_state['base_url']}/calendar/detail/{start_date}"
-    
-    data = make_request(
-        session=_state["session"],
-        method="GET",
-        url=url,
-        login_cb=login
-    )
+    try:
+        url = f"{_state['base_url']}/calendar/detail/{start_date}"
+        api_response = make_request(
+            session=_state["session"],
+            method="GET",
+            url=url,
+            login_cb=login
+        )
+        parsed_response = _parse_response(api_response)
+        return parsed_response
+    except Exception as e:
+        logger.error(f"Unexpected error occured during room availability search: {e}")
+        raise e
 
-    received_version = data.get('version', '1.0') # Default to 1.0 if not present
-
+def _parse_response(response: Dict[str, Any]) -> Dict[str, Any]:
+    received_version = response.get('version', '1.0')
     try:
         # Extract date range
-        start_dt = datetime.strptime(data['startDate'], '%Y-%m-%d')
-        end_dt = datetime.strptime(data['endDate'], '%Y-%m-%d')
+        start_dt = datetime.strptime(response['startDate'], '%Y-%m-%d')
+        end_dt = datetime.strptime(response['endDate'], '%Y-%m-%d')
 
         # Generate all dates in range
         all_dates = []
@@ -146,16 +154,16 @@ def get_room_availability(start_date: str) -> Dict[str, Any]:
 
         # Build room ID to room number mapping
         room_id_to_number = {}
-        for room in data.get('roomList', []):
+        for room in response.get('roomList', []):
             room_id_to_number[room['id']] = room['roomNo']
         
         # Initialize rooms availability
         rooms_availability = {}
-        room_list = data.get('roomList', [])
-        for room_type in data.get('roomTypeList', []):
+        room_list = response.get('roomList', [])
+        for room_type in response.get('roomTypeList', []):
             rooms = [room for room in room_list if room['roomTypeId'] == room_type['id']]
             for room in rooms:  
-                room_no = room_id_to_number.get(room['id'])
+                room_no = room_id_to_number.get(room['id']).lower()
                 rooms_availability[room_no] = {
                     "room_id": room['id'],
                     "room_no": room_no,
@@ -165,22 +173,21 @@ def get_room_availability(start_date: str) -> Dict[str, Any]:
                 }
 
         # Traverse reservationRoomList to collect reserved dates
-        reservation_room_list = data.get('reservationRoomList', {})
-        for room_type_id, rooms in reservation_room_list.items():
-            if not isinstance(rooms, dict):
+        # Note: PMS returns [] (empty list) instead of {} when there are no reservations
+        reservation_room_list = response.get('reservationRoomList', {})
+        if not isinstance(reservation_room_list, dict):
+            reservation_room_list = {}
+        for room_type_id, rooms_dict in reservation_room_list.items():
+            if not isinstance(rooms_dict, dict):
                 continue
-            for room_id, dates_dict in rooms.items():
-                # Get the room number for this room ID
+            for room_id, dates_dict in rooms_dict.items():
                 room_number = room_id_to_number.get(room_id)
                 if room_number:
-                    # For each date key, process all reservations
+                    room_number = room_number.lower()
                     for date_key, reservations in dates_dict.items():
-                        # Process each reservation in the array
                         for reservation in reservations:
                             check_in = datetime.strptime(reservation['checkIn'], '%Y-%m-%d')
                             check_out = datetime.strptime(reservation['checkOut'], '%Y-%m-%d')
-
-                            # Reserve dates from checkIn to checkOut-1 (checkOut is available)
                             current = check_in
                             while current < check_out:
                                 reserved_date_str = current.strftime('%Y-%m-%d')
@@ -188,20 +195,20 @@ def get_room_availability(start_date: str) -> Dict[str, Any]:
                                     rooms_availability[room_number]['dates'].discard(reserved_date_str)
                                 current += timedelta(days=1)
 
-        # Convert sets to sorted lists
+        # Standardize output for single window
         for room_number in rooms_availability:
             rooms_availability[room_number]['dates'] = sorted(list(rooms_availability[room_number]['dates']))
 
         return {
-            "from": data.get('startDate'),
-            "to": data.get('endDate'),
+            "from": response.get('startDate'),
+            "to": response.get('endDate'),
             "rooms": rooms_availability,
             "version": received_version
         }
 
     except Exception as e:
-        error_msg = f"Error parsing PMS response. [Expected Version: {EXPECTED_PMS_VERSION}, Received Version: {received_version}] Detail: {e}"
         if received_version != EXPECTED_PMS_VERSION:
-            error_msg = f"PMS API Version Mismatch! The parser might be outdated. {error_msg}"
-        print(error_msg)
-        return {"from": start_date, "to": "", "rooms": {}, "error": error_msg, "version": received_version}
+            error_msg = f"Error parsing PMS response. [Expected: {EXPECTED_PMS_VERSION}, Received: {received_version}] Detail: {e}"
+            raise Exception(error_msg)
+        raise e
+
