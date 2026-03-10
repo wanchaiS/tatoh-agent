@@ -20,4 +20,5 @@ class GlobalState(MessagesState):
     criteria_confirmed: bool
     room_search_result: RoomSearchResult
     closing_state: ClosingState
+    user_language: str
     ui: Annotated[Sequence[AnyUIMessage], ui_message_reducer]

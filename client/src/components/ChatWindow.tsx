@@ -1,14 +1,48 @@
 import { useEffect, useRef } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useChat } from "@/context/ChatContext"
+import { UIMessageRenderer } from "./UIMessageRenderer"
+
+function TypingIndicator() {
+  return (
+    <div className="flex justify-start">
+      <div className="flex items-center gap-1 rounded-xl bg-muted px-4 py-3">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="inline-block h-2 w-2 rounded-full bg-muted-foreground/60 animate-bounce"
+            style={{ animationDelay: `${i * 150}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function ChatWindow() {
-  const { messages, isLoading } = useChat()
+  const { messages, isLoading, values, submit } = useChat()
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  const uiMessages = (values?.ui ?? []) as Array<{
+    type: "ui"
+    id: string
+    name: string
+    props: Record<string, unknown>
+  }>
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isLoading])
+  }, [messages, isLoading, uiMessages.length])
+
+  const handleSubmitMessage = (text: string) => {
+    submit(
+      { messages: [{ type: "human", content: text }] },
+      { 
+        streamMode: ["values", "messages"],
+        streamSubgraphs: true
+      }
+    )
+  }
 
   const visibleMessages = messages.filter(
     (m) =>
@@ -17,7 +51,7 @@ export function ChatWindow() {
       m.content.trim() !== ""
   )
 
-  if (visibleMessages.length === 0) {
+  if (visibleMessages.length === 0 && uiMessages.length === 0) {
     return (
       <ScrollArea className="flex-1">
         <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center px-4 py-8">
@@ -38,7 +72,7 @@ export function ChatWindow() {
         {visibleMessages.map((m, i) => (
           <div
             key={m.id ?? i}
-            className={`flex ${m.type === "human" ? "justify-end" : "justify-start"}`}
+            className={`flex animate-in fade-in duration-300 ${m.type === "human" ? "justify-end" : "justify-start"}`}
           >
             <div
               className={`max-w-[80%] rounded-xl px-4 py-2 text-sm whitespace-pre-wrap ${
@@ -51,13 +85,18 @@ export function ChatWindow() {
             </div>
           </div>
         ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="rounded-xl bg-muted px-4 py-2 text-sm text-muted-foreground">
-              Thinking…
+        {uiMessages.map((uiMsg) => (
+          <div key={uiMsg.id} className="flex justify-start animate-in fade-in duration-300">
+            <div className="w-full max-w-[90%]">
+              <UIMessageRenderer
+                message={uiMsg}
+                onSubmitMessage={handleSubmitMessage}
+                isLoading={isLoading}
+              />
             </div>
           </div>
-        )}
+        ))}
+        {isLoading && <TypingIndicator />}
         <div ref={bottomRef} />
       </div>
     </ScrollArea>

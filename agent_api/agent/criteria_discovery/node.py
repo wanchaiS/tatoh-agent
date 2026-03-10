@@ -1,7 +1,6 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
-from langgraph.graph.ui import push_ui_message
 from langgraph.types import Command
 from pydantic import BaseModel
 
@@ -58,18 +57,12 @@ async def criteria_discovery_node(state: GlobalState, config: RunnableConfig):
 
     criteria = result.get("criteria") or Criteria()
     criteria_ready = result.get("criteria_ready", False)
-
-    if criteria_ready:
-        push_ui_message(
-            "suggested_answers",
-            {
-                "options": ["ยืนยันการจอง", "ต้องการแก้ไข"],
-            },
-        )
+    criteria_confirmed = result.get("criteria_confirmed", False)
 
     return {
         "criteria": criteria,
         "criteria_ready": criteria_ready,
+        "criteria_confirmed": criteria_confirmed,
         "ui": result.get("ui"),
         "messages": [result["messages"][-1]],
     }

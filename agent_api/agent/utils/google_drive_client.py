@@ -1,7 +1,6 @@
 import io
 import logging
 import os
-import threading
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -13,9 +12,10 @@ from googleapiclient.http import MediaIoBaseDownload
 logger = logging.getLogger(__name__)
 
 
-# Use thread-local storage for services to ensure thread-safety
-# google-api-python-client is not thread-safe when sharing service objects
-_thread_local = threading.local()
+# We do not use thread-local storage anymore because long-lived threads 
+# (e.g., in a Uvicorn server) will keep an HTTP connection pool open infinitely, 
+# resulting in `EOF occurred in violation of protocol (_ssl.c:2437)` errors
+# when Google's servers drop the idle connection.
 
 # Scopes needed for both Drive and Sheets (read-only)
 SCOPES = [
@@ -100,10 +100,9 @@ def _get_project_root() -> Path:
 
 
 def _get_drive_service():
-    """Helper to initialize Google Drive service as a thread-local singleton."""
-    if hasattr(_thread_local, "drive_service"):
-        return _thread_local.drive_service
-
+    """Helper to initialize Google Drive service.
+    Returns a new instance to prevent stale Http connection pooling in long-lived environments.
+    """
     root_path = _get_project_root()
     creds_path = root_path / "google_credentials.json"
 
@@ -113,23 +112,20 @@ def _get_drive_service():
     creds = service_account.Credentials.from_service_account_file(
         str(creds_path), scopes=SCOPES
     )
-    _thread_local.drive_service = build("drive", "v3", credentials=creds)
-    return _thread_local.drive_service
+    return build("drive", "v3", credentials=creds)
 
 
 def _get_sheets_service():
-    """Helper to initialize Google Sheets service as a thread-local singleton."""
-    if hasattr(_thread_local, "sheets_service"):
-        return _thread_local.sheets_service
-
+    """Helper to initialize Google Sheets service.
+    Returns a new instance to prevent stale Http connection pooling in long-lived environments.
+    """
     root_path = _get_project_root()
     creds_path = root_path / "google_credentials.json"
 
     creds = service_account.Credentials.from_service_account_file(
         str(creds_path), scopes=SCOPES
     )
-    _thread_local.sheets_service = build("sheets", "v4", credentials=creds)
-    return _thread_local.sheets_service
+    return build("sheets", "v4", credentials=creds)
 
 
 def _list_drive_files(folder_id: Optional[str] = None) -> List[Dict]:

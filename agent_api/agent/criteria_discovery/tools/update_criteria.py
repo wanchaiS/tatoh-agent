@@ -5,30 +5,17 @@ from typing import List, Optional
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
+from langgraph.graph.ui import push_ui_message
 from langgraph.types import Command
+
+from agent.glossary import t
 
 from agent.criteria_discovery.schema import Criteria, DateWindow
 
 VAGUE_WINDOW_THRESHOLD_DAYS = 10
 REQUIRED_FIELDS = ["date_windows", "duration_nights", "total_guests"]
-RESORT_ROOMS = [
-    "s1",
-    "s2",
-    "s3",
-    "s4",
-    "s5",
-    "s6",
-    "s7",
-    "s8",
-    "s9",
-    "s10",
-    "s11",
-    "s12",
-    "s14",
-    "v1",
-    "v2",
-    "v3",
-]
+
+from agent.services.room_service import room_service
 
 
 def _parse_date(date_str: str) -> Optional[datetime]:
@@ -75,9 +62,9 @@ def _validate(
     # Requested rooms
     if requested_rooms is not None:
         for room in requested_rooms:
-            if room.lower() not in RESORT_ROOMS:
+            if not room_service.does_room_exist(room):
                 errors.append(
-                    f"Room {room} is not a valid room type. Valid room types are: {', '.join([r.upper() for r in RESORT_ROOMS])}."
+                    f"Room {room} is not a valid room type. Valid room types are: {room_service.get_valid_rooms_list_str()}."
                 )
 
     # Windows
@@ -221,6 +208,18 @@ def update_criteria(
         parts.append(
             "All criteria ready. Present a natural, friendly summary of the booking criteria "
             "to the user and ask for their confirmation."
+        )
+
+    if not missing:
+        lang = runtime.state.get("user_language", "th")
+        push_ui_message(
+            "suggested_answers",
+            {
+                "options": [
+                    t("confirm_criteria", lang),
+                    t("update_criteria", lang),
+                ],
+            },
         )
 
     # update criteria and set validation result

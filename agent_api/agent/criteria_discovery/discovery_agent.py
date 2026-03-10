@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 
 from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -52,6 +53,7 @@ def build_system_prompt(
         )
 
     return f"""You are Cooper (คูเปอร์), the welcoming first point of contact for Tatoh Resort (ตาโต๊ะรีสอร์ท), Koh Tao.
+Always reply in the same language the user has been speaking.
 Address the user kindly as "คุณลูกค้า" when speaking Thai.
 
 [CONTEXT]
@@ -162,12 +164,12 @@ You MUST act like a human receptionist, not a robot or a system form.
 
 # ── Static sub-graph on GlobalState ──────────────────────────────
 all_tools = qa_tools + [update_criteria]
-_model = ChatOpenAI(model="openai/gpt-5.1-instant", temperature=0)
+_model = ChatOpenAI(model="openai/gpt-5.1-instant", temperature=0, streaming=True)
 _llm_with_tools = _model.bind_tools(all_tools)
 _tool_node = ToolNode(all_tools, handle_tool_errors=True)
 
 
-def _agent_node(state: GlobalState):
+async def _agent_node(state: GlobalState, config: RunnableConfig):
     today = datetime.now().strftime("%Y-%m-%d")
     criteria = state.get("criteria") or Criteria()
     pending_confirmation = state.get("criteria_ready", False) and not state.get(
@@ -176,8 +178,9 @@ def _agent_node(state: GlobalState):
     system_prompt = build_system_prompt(
         criteria, today, pending_confirmation=pending_confirmation
     )
-    response = _llm_with_tools.invoke(
-        [SystemMessage(content=system_prompt)] + state["messages"]
+    response = await _llm_with_tools.ainvoke(
+        [SystemMessage(content=system_prompt)] + state["messages"],
+        config
     )
     return {"messages": [response]}
 

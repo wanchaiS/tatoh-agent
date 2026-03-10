@@ -12,6 +12,7 @@ router = APIRouter()
 class RunInput(BaseModel):
     input: dict | None = None
     stream_mode: list[str] | str = "values"
+    stream_subgraphs: bool = False
     assistant_id: str = "agent"
 
 
@@ -32,7 +33,6 @@ def _sse_event(event: str, data: object) -> str:
     """Format a Server-Sent Event."""
     return f"event: {event}\ndata: {json.dumps(_serialize(data), default=str)}\n\n"
 
-
 @router.post("/threads/{thread_id}/runs/stream")
 async def stream_run(thread_id: str, body: RunInput, request: Request):
     """Stream a graph run, matching LangGraph Agent Server SSE format."""
@@ -44,24 +44,39 @@ async def stream_run(thread_id: str, body: RunInput, request: Request):
         body.stream_mode if isinstance(body.stream_mode, list) else [body.stream_mode]
     )
 
+    # Map SDK stream mode names to LangGraph Python equivalents
+    MODE_MAP = {"messages-tuple": "messages"}
+    lg_stream_modes = list(dict.fromkeys(
+        MODE_MAP.get(m, m) for m in stream_modes
+    ))
+
     async def event_generator():
         # First event is always metadata
         yield _sse_event("metadata", {"run_id": run_id})
 
         try:
-            # When stream_mode is a list, astream yields (mode, data) tuples
+            # When stream_mode is a list, astream yields tuples
             async for chunk in graph.astream(
                 body.input,
                 config,
-                stream_mode=stream_modes,
+                stream_mode=lg_stream_modes,
+                subgraphs=body.stream_subgraphs,
             ):
-                if isinstance(chunk, tuple) and len(chunk) == 2:
-                    mode, data = chunk
+                if isinstance(chunk, tuple):
+                    if len(chunk) == 3:
+                        namespace, mode, data = chunk
+                    elif len(chunk) == 2:
+                        mode, data = chunk
+                    else:
+                        mode = lg_stream_modes[0]
+                        data = chunk
                 else:
                     # Single stream mode — event type is the mode itself
-                    mode = stream_modes[0]
+                    mode = lg_stream_modes[0]
                     data = chunk
 
+                # Use LangGraph Python mode names directly as SSE event types.
+                # The SDK expects "messages" and "values", not "messages-tuple".
                 yield _sse_event(mode, data)
         except Exception as e:
             yield _sse_event("error", {"message": str(e)})

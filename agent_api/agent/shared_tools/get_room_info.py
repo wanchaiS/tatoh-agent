@@ -16,12 +16,18 @@ def get_room_info(room_number: str) -> str:
     Args:
         room_number: The identifier for the room (e.g., "S1", "V2").
     """
+    error_msg = room_service.validate_room(room_number)
+    if error_msg:
+        return error_msg
+
+    # Emit loading skeleton immediately
+    push_ui_message("room_detail", {"loading": True, "room": None})
 
     room = room_service.get_room_by_name(room_number)
 
     if room:
-        # Emit room detail UI card directly from the tool
-        push_ui_message("room_detail", {"room": asdict(room)})
+        # Emit real data (replaces loading state via reducer)
+        push_ui_message("room_detail", {"loading": False, "room": asdict(room)})
 
         return (
             f"Rendered room detail card for {room.room_name} ({room.room_type}) to the user via UI. "

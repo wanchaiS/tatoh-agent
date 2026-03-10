@@ -87,7 +87,29 @@ class RoomService:
 
     def get_room_by_name(self, room_name: str) -> Optional[Room]:
         """Look up a single room by its room_name (e.g. 'S1', 'V2')."""
-        return next((r for r in self.get_all_rooms() if r.room_name == room_name), None)
+        room_name_lower = room_name.strip().lower()
+        return next((r for r in self.get_all_rooms() if r.room_name.lower() == room_name_lower), None)
+
+    def get_valid_room_names(self) -> List[str]:
+        """Return a list of all valid room names."""
+        return [r.room_name.lower() for r in self.get_all_rooms()]
+
+    def does_room_exist(self, room_name: str) -> bool:
+        """Check if a room name exists in the hotel."""
+        return self.get_room_by_name(room_name) is not None
+
+    def get_valid_rooms_list_str(self) -> str:
+        """Get a comma-separated list of all valid rooms."""
+        return ", ".join([r.room_name.upper() for r in self.get_all_rooms()])
+
+    def validate_room(self, room_name: str) -> str | None:
+        """
+        Returns an error message string if the room is invalid, 
+        or None if it is valid. This provides graceful tool errors.
+        """
+        if not self.does_room_exist(room_name):
+            return f"Error: Room '{room_name}' does not exist. Please inform the user or choose from the valid rooms: {self.get_valid_rooms_list_str()}"
+        return None
 
 
 # Module-level singleton for convenient imports

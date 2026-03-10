@@ -10,7 +10,13 @@ export function ChatInput() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!message.trim() || isLoading) return
-    submit({ messages: [{ type: "human", content: message }] })
+    submit(
+      { messages: [{ type: "human", content: message }] },
+      { 
+        streamMode: ["values", "messages"],
+        streamSubgraphs: true
+      }
+    )
     setMessage("")
   }
 

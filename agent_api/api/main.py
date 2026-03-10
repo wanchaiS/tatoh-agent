@@ -14,7 +14,6 @@ from api.routes.threads import router as threads_router
 async def lifespan(app: FastAPI):
     async with AsyncPostgresSaver.from_conn_string(
         DATABASE_URL,
-        allowed_msgpack_modules={"agent.criteria_discovery.schema": ["Criteria"]},
     ) as checkpointer:
         await checkpointer.setup()
         app.state.graph = graph_builder.compile(checkpointer=checkpointer)

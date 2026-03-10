@@ -1,7 +1,5 @@
-import asyncio
-from typing import Any, Dict
-
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END
 from langgraph.types import Command
@@ -12,7 +10,8 @@ from agent.rooms_searching.search_rooms import RunSearchResult, search_rooms
 from agent.types import GlobalState
 
 
-async def room_searching_node(state: GlobalState):
+
+async def room_searching_node(state: GlobalState, config: RunnableConfig):
     """
     A room search node that search for rooms and return the result to the user.
     it decide to go to evaluate options node or criteria discovery node based on the search result.
@@ -47,14 +46,15 @@ async def room_searching_node(state: GlobalState):
     if new_criteria_id == current_criteria_id:
         return Command(goto="closing_node")
 
-    # Run blocking search in a separate thread
-    search_result = await asyncio.to_thread(search_rooms, criteria)
+    # Wrap blocking search in a RunnableLambda for observability tracing
+    search_runnable = RunnableLambda(search_rooms).with_config({"run_name": "execute_pms_search"})
+    search_result = await search_runnable.ainvoke(criteria)
 
     # Generate raw facts for agent state
     raw_summary = _build_search_results_summary(search_result, criteria)
 
     # Generate conversational summary for the user
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, streaming=True)
     system_prompt = (
         "You are a helpful hotel booking assistant.\n"
         "Your task is to summarize the following search results for the user in a friendly, conversational way.\n"
@@ -64,31 +64,13 @@ async def room_searching_node(state: GlobalState):
         f"Search Results Facts:\n{raw_summary}"
     )
 
-    # Extract the last human message for language detection
-    last_human_text = ""
-    for msg in reversed(state.get("messages", [])):
-        if isinstance(msg, HumanMessage):
-            content = msg.content
-            if isinstance(content, str):
-                last_human_text = content
-            elif isinstance(content, list):
-                last_human_text = " ".join(
-                    blk.get("text", "")
-                    if isinstance(blk, dict) and blk.get("type") == "text"
-                    else str(blk)
-                    for blk in content
-                )
-            break
-
-    system_prompt += (
-        f'\n\nUser\'s last message (for language reference only): "{last_human_text}"'
-    )
-
+    recent_messages = state.get("messages", [])[-5:]
     response = await llm.ainvoke(
         [
             SystemMessage(content=system_prompt),
-            HumanMessage(content="Please summarize the room search results."),
-        ]
+            *recent_messages
+        ],
+        config
     )
 
     if not search_result.rooms:
