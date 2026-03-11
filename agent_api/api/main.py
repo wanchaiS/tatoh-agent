@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from agent.root_graph import graph_builder
-from api.config import DATABASE_URL
+from db.database import DATABASE_URL
 from api.routes.runs import router as runs_router
 from api.routes.threads import router as threads_router
 
