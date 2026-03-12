@@ -43,7 +43,7 @@ class RunSearchResult:
 
 
 # ── Public entry point ─────────────────────────────────────────────────────────
-def search_rooms(criteria: Criteria) -> RunSearchResult:
+async def search_rooms(criteria: Criteria) -> RunSearchResult:
     """
     Search rooms with automatic window expansion across multiple date windows.
     Returns rooms.
@@ -56,7 +56,7 @@ def search_rooms(criteria: Criteria) -> RunSearchResult:
 
         # criteria.get_expanded_windows returns list of (start_str, end_str) tuples
         for window_start, window_end in criteria.get_expanded_windows(shift):
-            candidates = _search_rooms_window_candidates(
+            candidates = await _search_rooms_window_candidates(
                 availability_service=room_availability_service,
                 search_start=window_start,
                 search_end=window_end,
@@ -86,7 +86,7 @@ def search_rooms(criteria: Criteria) -> RunSearchResult:
     )
 
 
-def _search_rooms_window_candidates(
+async def _search_rooms_window_candidates(
     availability_service: RoomAvailabilityService,
     search_start: str,
     search_end: str,
@@ -100,7 +100,7 @@ def _search_rooms_window_candidates(
 
     # Tracker fetches dynamically and returns strictly clipped dates
     availability = availability_service.get_availability(search_start_dt, search_end_dt)
-    room_metadata = room_service.get_all_rooms()
+    room_metadata = await room_service.get_all_rooms()
 
     candidates = []
 

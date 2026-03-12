@@ -1,5 +1,3 @@
-from dataclasses import asdict
-
 from langchain.tools import tool
 from langgraph.graph.ui import push_ui_message
 
@@ -7,9 +5,14 @@ from agent.services.room_service import room_service
 from agent.utils.tool_errors import handle_tool_error
 
 
+def _model_to_dict(model):
+    """Convert SQLAlchemy model to dict, excluding internal state."""
+    return {k: v for k, v in model.__dict__.items() if not k.startswith('_')}
+
+
 @tool
 @handle_tool_error
-def get_rooms_list() -> str:
+async def get_rooms_list() -> str:
     """
     Get a list of all rooms with basic info: name, type, capacity, and pricing.
     Use this when the user asks to see all available rooms or wants an overview of room options.
@@ -17,14 +20,14 @@ def get_rooms_list() -> str:
     # Emit loading skeleton immediately
     push_ui_message("rooms_list", {"loading": True, "rooms": []})
 
-    rooms = room_service.get_all_rooms()
+    rooms = await room_service.get_all_rooms()
 
     if not rooms:
         push_ui_message("rooms_list", {"loading": False, "rooms": []})
         return "No rooms data available"
 
     # Emit real data (replaces loading state via reducer)
-    push_ui_message("rooms_list", {"loading": False, "rooms": [asdict(r) for r in rooms]})
+    push_ui_message("rooms_list", {"loading": False, "rooms": [_model_to_dict(r) for r in rooms]})
 
     prices = [r.price_weekdays for r in rooms]
     types = sorted(set(r.room_type for r in rooms))

@@ -6,6 +6,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from agent.root_graph import graph_builder
 from db.database import DATABASE_URL
+from api.rooms.router import router as rooms_router
 from api.routes.runs import router as runs_router
 from api.routes.threads import router as threads_router
 
@@ -32,3 +33,4 @@ app.add_middleware(
 
 app.include_router(threads_router)
 app.include_router(runs_router)
+app.include_router(rooms_router)

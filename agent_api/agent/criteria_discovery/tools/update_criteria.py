@@ -36,7 +36,7 @@ def _get_missing(candidate: Criteria) -> list[str]:
     return missing
 
 
-def _validate(
+async def _validate(
     windows: List[DateWindow],
     duration_nights: Optional[int],
     total_guests: Optional[int],
@@ -62,9 +62,9 @@ def _validate(
     # Requested rooms
     if requested_rooms is not None:
         for room in requested_rooms:
-            if not room_service.does_room_exist(room):
+            if not await room_service.does_room_exist(room):
                 errors.append(
-                    f"Room {room} is not a valid room type. Valid room types are: {room_service.get_valid_rooms_list_str()}."
+                    f"Room {room} is not a valid room type. Valid room types are: {await room_service.get_valid_rooms_list_str()}."
                 )
 
     # Windows
@@ -99,7 +99,7 @@ def _validate(
 
 
 @tool
-def update_criteria(
+async def update_criteria(
     date_windows: Optional[List[dict]] = None,
     duration_nights: Optional[int] = None,
     total_guests: Optional[int] = None,
@@ -153,7 +153,7 @@ def update_criteria(
     )
 
     # ── Validate ──────────────────────────────────────────────────────
-    errors = _validate(
+    errors = await _validate(
         effective_windows,
         effective_duration,
         effective_guests,

@@ -9,7 +9,7 @@ from agent.services.room_service import room_service
 
 @tool
 @handle_tool_error
-def get_room_gallery(room_number: str) -> List[str] | str:
+async def get_room_gallery(room_number: str) -> List[str] | str:
     """
     Get a collection of additional photos for a specific room.
     Use this when the user asks to see 'more pictures', 'better photos',
@@ -18,7 +18,7 @@ def get_room_gallery(room_number: str) -> List[str] | str:
     Args:
         room_number: The room identifier (e.g., 'S1', 'V2').
     """
-    error_msg = room_service.validate_room(room_number)
+    error_msg = await room_service.validate_room(room_number)
     if error_msg:
         return error_msg
 

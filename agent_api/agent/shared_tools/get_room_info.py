@@ -1,5 +1,3 @@
-from dataclasses import asdict
-
 from langchain.tools import tool
 from langgraph.graph.ui import push_ui_message
 
@@ -7,27 +5,32 @@ from agent.services.room_service import room_service
 from agent.utils.tool_errors import handle_tool_error
 
 
+def _model_to_dict(model):
+    """Convert SQLAlchemy model to dict, excluding internal state."""
+    return {k: v for k, v in model.__dict__.items() if not k.startswith('_')}
+
+
 @tool
 @handle_tool_error
-def get_room_info(room_number: str) -> str:
+async def get_room_info(room_number: str) -> str:
     """
     Get room information for a specific room number.
 
     Args:
         room_number: The identifier for the room (e.g., "S1", "V2").
     """
-    error_msg = room_service.validate_room(room_number)
+    error_msg = await room_service.validate_room(room_number)
     if error_msg:
         return error_msg
 
     # Emit loading skeleton immediately
     push_ui_message("room_detail", {"loading": True, "room": None})
 
-    room = room_service.get_room_by_name(room_number)
+    room = await room_service.get_room_by_name(room_number)
 
     if room:
         # Emit real data (replaces loading state via reducer)
-        push_ui_message("room_detail", {"loading": False, "room": asdict(room)})
+        push_ui_message("room_detail", {"loading": False, "room": _model_to_dict(room)})
 
         return (
             f"Rendered room detail card for {room.room_name} ({room.room_type}) to the user via UI. "

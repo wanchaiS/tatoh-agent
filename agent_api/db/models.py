@@ -30,7 +30,6 @@ class Room(Base):
     room_design = Column(Integer, nullable=False)
     room_newness = Column(Integer, nullable=False)
     tags = Column(Text, nullable=True)
-    photo_count = Column(Integer, nullable=False, server_default="0")
 
 
 class BoatSchedule(Base):
