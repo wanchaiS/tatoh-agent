@@ -1,3 +1,5 @@
+import uuid
+
 from langchain.tools import tool
 from langgraph.graph.ui import push_ui_message
 
@@ -17,17 +19,23 @@ async def get_rooms_list() -> str:
     Get a list of all rooms with basic info: name, type, capacity, and pricing.
     Use this when the user asks to see all available rooms or wants an overview of room options.
     """
+    msg_id = str(uuid.uuid4())
     # Emit loading skeleton immediately
-    push_ui_message("rooms_list", {"loading": True, "rooms": []})
+    push_ui_message("rooms_list", {"loading": True, "rooms": []}, id=msg_id)
 
     rooms = await room_service.get_all_rooms()
 
     if not rooms:
-        push_ui_message("rooms_list", {"loading": False, "rooms": []})
+        push_ui_message("rooms_list", {"loading": False, "rooms": []}, id=msg_id)
         return "No rooms data available"
 
     # Emit real data (replaces loading state via reducer)
-    push_ui_message("rooms_list", {"loading": False, "rooms": [_model_to_dict(r) for r in rooms]})
+    room_dicts = []
+    for r in rooms:
+        d = _model_to_dict(r)
+        d["thumbnail_url"] = await room_service.get_first_photo_url(r.id)
+        room_dicts.append(d)
+    push_ui_message("rooms_list", {"loading": False, "rooms": room_dicts}, id=msg_id)
 
     prices = [r.price_weekdays for r in rooms]
     types = sorted(set(r.room_type for r in rooms))

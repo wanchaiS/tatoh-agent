@@ -1,3 +1,5 @@
+import uuid
+
 from langchain.tools import tool
 from langgraph.graph.ui import push_ui_message
 
@@ -23,14 +25,17 @@ async def get_room_info(room_number: str) -> str:
     if error_msg:
         return error_msg
 
+    msg_id = str(uuid.uuid4())
     # Emit loading skeleton immediately
-    push_ui_message("room_detail", {"loading": True, "room": None})
+    push_ui_message("room_detail", {"loading": True, "room": None}, id=msg_id)
 
     room = await room_service.get_room_by_name(room_number)
 
     if room:
         # Emit real data (replaces loading state via reducer)
-        push_ui_message("room_detail", {"loading": False, "room": _model_to_dict(room)})
+        room_dict = _model_to_dict(room)
+        room_dict["thumbnail_url"] = await room_service.get_first_photo_url(room.id)
+        push_ui_message("room_detail", {"loading": False, "room": room_dict}, id=msg_id)
 
         return (
             f"Rendered room detail card for {room.room_name} ({room.room_type}) to the user via UI. "

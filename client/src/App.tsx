@@ -15,9 +15,9 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen">
+    <div className="grid h-[100dvh] grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
       {/* Desktop sidebar */}
-      <aside className="hidden w-[280px] border-r bg-background md:block">
+      <aside className="hidden border-r bg-background md:block">
         <Sidebar />
       </aside>
 
@@ -39,7 +39,7 @@ function App() {
       </Sheet>
 
       {/* Main chat area */}
-      <main className="flex flex-1 flex-col">
+      <main className="grid grid-rows-[1fr_auto] min-h-0 bg-chat-bg">
         <ChatWindow />
         <ChatInput />
       </main>

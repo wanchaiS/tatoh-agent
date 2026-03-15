@@ -10,7 +10,7 @@ class RoomRepository:
         self.db = db
 
     async def get_all(self) -> list[RoomModel]:
-        result = await self.db.execute(select(RoomModel))
+        result = await self.db.execute(select(RoomModel).order_by(RoomModel.id))
         return result.scalars().all()
 
     async def get_by_id(self, id: int) -> RoomModel | None:

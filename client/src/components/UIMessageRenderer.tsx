@@ -1,6 +1,7 @@
 import { RoomsList } from "./ui-messages/RoomsList"
 import { RoomDetail } from "./ui-messages/RoomDetail"
 import { SuggestedAnswers } from "./ui-messages/SuggestedAnswers"
+import type { RoomData } from "./ui-messages/RoomCard"
 
 interface UIMessage {
   type: "ui"
@@ -29,6 +30,7 @@ export function UIMessageRenderer({
         <RoomsList
           rooms={(props.rooms as never[]) ?? []}
           loading={loading}
+          onAskAI={(room: RoomData) => onSubmitMessage(`ดูรายละเอียดห้อง ${room.room_name}`)}
         />
       )
     case "room_detail":

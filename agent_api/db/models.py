@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Float, Integer, String, Text, Time
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, Time
 from sqlalchemy.dialects.postgresql import ARRAY
 
 from db.database import Base
@@ -30,6 +30,16 @@ class Room(Base):
     room_design = Column(Integer, nullable=False)
     room_newness = Column(Integer, nullable=False)
     tags = Column(Text, nullable=True)
+
+
+class RoomPhoto(Base):
+    __tablename__ = "room_photos"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True)
+    room_id = Column(Integer, ForeignKey(f"{SCHEMA}.rooms.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(255), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
 
 
 class BoatSchedule(Base):

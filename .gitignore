@@ -165,6 +165,7 @@ cython_debug/
 .vscode/
 
 data/
+agent_api/static/
 
 .DS_Store
 google_credentials.json

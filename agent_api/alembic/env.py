@@ -19,8 +19,10 @@ EXCLUDE_TABLES = {"checkpoint_blobs", "checkpoints", "checkpoint_writes", "check
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    if type_ == "table" and name in EXCLUDE_TABLES:
-        return False
+    if type_ == "table":
+        # Ignore tables managed by external libraries (e.g. LangGraph checkpoints)
+        if name in EXCLUDE_TABLES:
+            return False
     return True
 
 
@@ -33,6 +35,8 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         include_object=include_object,
+        include_schemas=True,
+        version_table_schema="tatoh",
     )
 
     with context.begin_transaction():
@@ -52,6 +56,8 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             include_object=include_object,
+            include_schemas=True,
+            version_table_schema="tatoh",
         )
 
         with context.begin_transaction():

@@ -1,8 +1,12 @@
+import { useState } from "react"
+
 export interface RoomData {
+  id: number
   room_name: string
   room_type: string
   summary: string
-  beds: string
+  bed_queen: number
+  bed_single: number
   baths: number
   size: number
   price_weekdays: number
@@ -16,43 +20,53 @@ export interface RoomData {
   room_design: number
   room_newness: number
   tags: string[]
+  thumbnail_url?: string
 }
 
-function getRoomEmoji(roomType: string): string {
-  const lower = roomType.toLowerCase()
-  if (lower.includes("sea")) return "🏖️"
-  if (lower.includes("garden")) return "🌿"
-  if (lower.includes("suite")) return "🌊"
-  return "🏠"
-}
+export function RoomCard({
+  room,
+  onSelect,
+}: {
+  room: RoomData
+  onSelect?: (room: RoomData) => void
+}) {
+  const photoSrc = room.thumbnail_url ?? null
+  const [imgLoaded, setImgLoaded] = useState(false)
 
-export function RoomCard({ room }: { room: RoomData }) {
   return (
-    <div className="relative h-[280px] w-[200px] flex-shrink-0 cursor-pointer overflow-hidden rounded-2xl transition-transform hover:-translate-y-1 snap-start">
-      {/* Background */}
-      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2a3a4a] via-[#1a2a3a] to-[#0f1a2a] text-4xl">
-        {getRoomEmoji(room.room_type)}
+    <div
+      className="rounded-xl overflow-hidden bg-card cursor-pointer group hover:-translate-y-1 transition-all duration-300"
+      onClick={() => onSelect?.(room)}
+    >
+      <div className="h-[190px] overflow-hidden relative">
+        {photoSrc ? (
+          <>
+            {/* shimmer placeholder visible while image fetches */}
+            {!imgLoaded && <div className="absolute inset-0 animate-shimmer" />}
+            <img
+              src={photoSrc}
+              alt={room.room_name}
+              onLoad={() => setImgLoaded(true)}
+              className={`h-full w-full object-cover object-center transition-opacity duration-500 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+            />
+          </>
+        ) : (
+          <div className="h-full w-full animate-shimmer" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
       </div>
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/30 to-black/85" />
-      {/* Content */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 p-3.5">
-        <div className="text-lg font-extrabold text-white drop-shadow-md">
-          {room.room_name}
+      <div className="p-3">
+        <div className="font-semibold text-base leading-tight text-foreground">{room.room_name}</div>
+        <div className="text-xs text-muted-foreground mt-0.5">{room.room_type}</div>
+        <div className="text-xs text-muted-foreground mt-1">
+          {room.max_guests} guests
+          {room.bed_queen > 0 ? ` · ${room.bed_queen}Q` : ""}
+          {room.bed_single > 0 ? ` ${room.bed_single}S` : ""}
         </div>
-        <div className="mb-2 text-[11px] font-medium text-white/70">
-          {room.room_type}
-        </div>
-        <div className="mb-2 flex gap-2">
-          <span className="rounded-md bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
-            👥 {room.max_guests} ท่าน
-          </span>
-        </div>
-        <div className="flex items-baseline gap-1">
-          <span className="text-base font-bold text-white">
-            ฿{room.price_weekdays.toLocaleString()}
-          </span>
-          <span className="text-[10px] text-white/50">เริ่มต้น /คืน</span>
+        <div className="mt-2">
+          <span className="text-xs text-muted-foreground">Starting </span>
+          <span className="font-bold text-tropical-coral">฿{room.price_weekdays.toLocaleString()}</span>
+          <span className="text-xs font-normal text-muted-foreground ml-1">/ night</span>
         </div>
       </div>
     </div>

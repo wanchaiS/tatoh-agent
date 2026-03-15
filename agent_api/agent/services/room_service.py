@@ -1,5 +1,7 @@
+from sqlalchemy import select
+
 from db.database import AsyncSessionLocal
-from db.models import Room as RoomModel
+from db.models import Room as RoomModel, RoomPhoto
 from api.rooms.repository import RoomRepository
 
 
@@ -29,6 +31,20 @@ class RoomService:
         """Get a comma-separated list of all valid rooms."""
         rooms = await self.get_all_rooms()
         return ", ".join(r.room_name.upper() for r in rooms)
+
+    async def get_first_photo_url(self, room_id: int) -> str | None:
+        """Return the thumbnail URL for the first photo of a room, or None."""
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(RoomPhoto)
+                .where(RoomPhoto.room_id == room_id)
+                .order_by(RoomPhoto.sort_order)
+                .limit(1)
+            )
+            photo = result.scalars().first()
+            if photo:
+                return f"/static/photos/rooms/{room_id}/thumbnails/{photo.filename}"
+            return None
 
     async def validate_room(self, room_name: str) -> str | None:
         """
