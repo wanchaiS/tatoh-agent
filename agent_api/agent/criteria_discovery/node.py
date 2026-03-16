@@ -52,17 +52,23 @@ async def criteria_discovery_node(state: GlobalState, config: RunnableConfig):
         # Not a clear "yes" — fall through to discovery subgraph
         # which will handle changes, questions, or unrelated messages
 
+    # Generate anchor ID for UI message association
+    anchor_id = state["messages"][-1].id
+    state_with_anchor = {**state, "ui_anchor_id": anchor_id}
+
     sub_config = {**(config or {}), "recursion_limit": 10}
-    result = await criteria_discovery_graph.ainvoke(state, config=sub_config)
+    result = await criteria_discovery_graph.ainvoke(state_with_anchor, config=sub_config)
 
     criteria = result.get("criteria") or Criteria()
     criteria_ready = result.get("criteria_ready", False)
     criteria_confirmed = result.get("criteria_confirmed", False)
+
+    last_msg = result["messages"][-1]
 
     return {
         "criteria": criteria,
         "criteria_ready": criteria_ready,
         "criteria_confirmed": criteria_confirmed,
         "ui": result.get("ui"),
-        "messages": [result["messages"][-1]],
+        "messages": [last_msg],
     }

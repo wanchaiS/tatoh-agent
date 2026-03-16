@@ -1,47 +1,11 @@
-import { useState } from "react"
-import { PanelLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
-import { Sidebar } from "@/components/Sidebar"
-import { ChatWindow } from "@/components/ChatWindow"
-import { ChatInput } from "@/components/ChatInput"
+import { MainThread } from "@/components/MainThread"
 
 function App() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="grid h-[100dvh] grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
-      {/* Desktop sidebar */}
-      <aside className="hidden border-r bg-background md:block">
-        <Sidebar />
-      </aside>
-
-      {/* Mobile sidebar via Sheet */}
-      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute left-3 top-3 z-10 md:hidden"
-          >
-            <PanelLeft className="h-5 w-5" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-[280px] p-0">
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <Sidebar />
-        </SheetContent>
-      </Sheet>
-
-      {/* Main chat area */}
+    <div className="grid h-[100dvh] grid-cols-1">
       <main className="grid grid-rows-[1fr_auto] min-h-0 bg-chat-bg">
-        <ChatWindow />
-        <ChatInput />
+        <MainThread />
       </main>
     </div>
   )

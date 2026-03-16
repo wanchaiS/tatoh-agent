@@ -1,46 +1,44 @@
-import { useState, useEffect, useRef } from "react"
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useListPhotos } from "@/hooks/usePhotos"
-import type { PhotoResponse } from "@/hooks/usePhotos"
-import type { RoomData } from "./RoomCard"
 import { PhotoLightbox } from "@/components/PhotoLightbox"
+import type { PhotoResponse } from "@/hooks/usePhotos"
+import { useListPhotos } from "@/hooks/usePhotos"
+import { useEffect, useRef, useState } from "react"
+import type { RoomData } from "./RoomCard"
+import { RoomDetailSkeleton } from "./RoomDetailSkeleton"
 
-interface RoomFocusViewProps {
-  room: RoomData
-  hasPrev: boolean
-  hasNext: boolean
-  prevRoomName?: string
-  nextRoomName?: string
-  onPrev: () => void
-  onNext: () => void
-  onBack: () => void
-  onAskAI: (room: RoomData) => void
+interface RoomInfoProps {
+  room: RoomData | null
+  loading?: boolean
 }
 
-export function RoomFocusView({ room, hasPrev, hasNext, prevRoomName, nextRoomName, onPrev, onNext, onBack, onAskAI }: RoomFocusViewProps) {
+export function RoomInfo({ room, loading }: RoomInfoProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [loadedImages, setLoadedImages] = useState<Record<number, boolean>>({})
   const scrollRef = useRef<HTMLDivElement>(null)
-  const { data: photos, isLoading: photosLoading } = useListPhotos(room.id)
+  const { data: photos, isLoading: photosLoading } = useListPhotos(room?.id ?? null)
   const photoList = photos ?? []
-
+  
   const photoSources: string[] = photoList.length > 0
     ? photoList.map((p) => p.url)
-    : room.thumbnail_url ? [room.thumbnail_url] : []
+    : room?.thumbnail_url ? [room.thumbnail_url] : []
 
   const lightboxPhotos: PhotoResponse[] = photoList.length > 0
     ? photoList
-    : room.thumbnail_url
-      ? [{ id: "thumbnail", url: room.thumbnail_url } as PhotoResponse]
+    : room?.thumbnail_url
+      ? [{ 
+          id: 0, 
+          url: room.thumbnail_url,
+          filename: 'thumbnail.jpg',
+          sort_order: 0,
+          thumbnail_url: room.thumbnail_url
+        }]
       : []
 
   useEffect(() => {
     setLoadedImages({})
     setActiveIndex(0)
     scrollRef.current?.scrollTo({ left: 0 })
-  }, [room.id])
+  }, [room?.id])
 
   function handleScroll() {
     const el = scrollRef.current
@@ -49,26 +47,12 @@ export function RoomFocusView({ room, hasPrev, hasNext, prevRoomName, nextRoomNa
     setActiveIndex(index)
   }
 
-  return (
-    <div className="animate-in fade-in duration-300">
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-2 px-1 pb-2">
-        <Button variant="ghost" size="sm" onClick={onBack} className="-ml-1 gap-1 text-muted-foreground hover:text-foreground">
-          <ChevronLeft className="h-4 w-4" />
-          All rooms
-        </Button>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onPrev} disabled={!hasPrev} className="gap-1 text-muted-foreground hover:text-foreground px-2">
-            <ChevronLeft className="h-4 w-4 shrink-0" />
-            <span className="max-w-[60px] truncate text-xs">{prevRoomName ?? ""}</span>
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onNext} disabled={!hasNext} className="gap-1 text-muted-foreground hover:text-foreground px-2">
-            <span className="max-w-[60px] truncate text-xs">{nextRoomName ?? ""}</span>
-            <ChevronRight className="h-4 w-4 shrink-0" />
-          </Button>
-        </div>
-      </div>
+  if (loading || !room) {
+    return <RoomDetailSkeleton />
+  }
 
+  return (
+    <div className="flex flex-col gap-0">
       {/* Photo strip */}
       {photosLoading ? (
         <div className="overflow-hidden rounded-xl">
@@ -179,15 +163,6 @@ export function RoomFocusView({ room, hasPrev, hasNext, prevRoomName, nextRoomNa
             ))}
           </div>
         )}
-
-        {/* CTA */}
-        <Button
-          className="w-full h-12 bg-tropical-coral hover:bg-tropical-coral/85 text-white border-0"
-          onClick={() => onAskAI(room)}
-        >
-          Ask about this room
-          <ArrowRight className="h-4 w-4" />
-        </Button>
       </div>
     </div>
   )

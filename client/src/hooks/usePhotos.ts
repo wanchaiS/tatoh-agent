@@ -13,7 +13,7 @@ export interface PhotoReorderItem {
   sort_order: number
 }
 
-export function useListPhotos(roomId: number) {
+export function useListPhotos(roomId: number | null) {
   return useQuery({
     queryKey: ['photos', roomId],
     queryFn: async () => {
@@ -21,6 +21,7 @@ export function useListPhotos(roomId: number) {
       if (!res.ok) throw new Error('Failed to fetch photos')
       return res.json() as Promise<PhotoResponse[]>
     },
+    enabled: roomId !== null,
   })
 }
 

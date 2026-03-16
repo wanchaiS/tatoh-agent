@@ -11,6 +11,8 @@ export function SuggestedAnswers({
   onSelect,
   disabled = false,
 }: SuggestedAnswersProps) {
+  if (!options.length) return null
+
   const [selected, setSelected] = useState<string | null>(null)
 
   const handleClick = (option: string) => {

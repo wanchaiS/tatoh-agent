@@ -1,22 +1,20 @@
 import { useState } from "react"
 import { RoomCard, type RoomData } from "./RoomCard"
 import { RoomCardSkeleton } from "./RoomCardSkeleton"
-import { RoomFocusView } from "./RoomFocusView"
+import { RoomCardFocusView } from "./RoomFocusView"
 
 export function RoomsList({
   rooms,
   loading,
-  onAskAI,
 }: {
   rooms: RoomData[]
   loading?: boolean
-  onAskAI?: (room: RoomData) => void
 }) {
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
 
   if (focusedIndex !== null && rooms[focusedIndex]) {
     return (
-      <RoomFocusView
+      <RoomCardFocusView
         room={rooms[focusedIndex]}
         hasPrev={focusedIndex > 0}
         hasNext={focusedIndex < rooms.length - 1}
@@ -25,10 +23,6 @@ export function RoomsList({
         onPrev={() => setFocusedIndex((i) => Math.max(0, (i ?? 0) - 1))}
         onNext={() => setFocusedIndex((i) => Math.min(rooms.length - 1, (i ?? 0) + 1))}
         onBack={() => setFocusedIndex(null)}
-        onAskAI={(room) => {
-          setFocusedIndex(null)
-          onAskAI?.(room)
-        }}
       />
     )
   }
@@ -41,6 +35,14 @@ export function RoomsList({
           <div className="w-[250px] shrink-0 snap-start"><RoomCardSkeleton /></div>
           <div className="w-[250px] shrink-0 snap-start"><RoomCardSkeleton /></div>
         </div>
+      </div>
+    )
+  }
+
+  if (rooms.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+        No rooms found
       </div>
     )
   }

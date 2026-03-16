@@ -22,3 +22,4 @@ class GlobalState(MessagesState):
     closing_state: ClosingState
     user_language: str
     ui: Annotated[Sequence[AnyUIMessage], ui_message_reducer]
+    ui_anchor_id: str

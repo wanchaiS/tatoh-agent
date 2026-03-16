@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from langchain.tools import ToolRuntime
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.graph.ui import push_ui_message
 from langgraph.types import Command
@@ -212,6 +212,12 @@ async def update_criteria(
 
     if not missing:
         lang = runtime.state.get("user_language", "th")
+        anchor_id = runtime.state.get("ui_anchor_id")
+        if anchor_id:
+            anchor_msg = AIMessage(id=anchor_id, content="")
+        else:
+            messages = runtime.state.get("messages", [])
+            anchor_msg = next((m for m in reversed(messages) if getattr(m, "type", None) == "ai"), None)
         push_ui_message(
             "suggested_answers",
             {
@@ -220,6 +226,7 @@ async def update_criteria(
                     t("update_criteria", lang),
                 ],
             },
+            message=anchor_msg,
         )
 
     # update criteria and set validation result
