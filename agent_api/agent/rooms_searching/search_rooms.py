@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, TypedDict
+from typing import Any, Dict, List, Tuple, TypedDict
 
 from agent.criteria_discovery.schema import Criteria
 from agent.rooms_searching.schema import AvailableDate, Rates, Room
@@ -9,7 +9,6 @@ from agent.services.room_availability import (
     RoomAvailabilityService,
 )
 from agent.services.room_service import room_service
-from agent.utils.pms_client import fetch_room_availability_window
 
 EXPANSION_STEPS = [0, 3, 5, 7]
 
@@ -17,9 +16,9 @@ EXPANSION_STEPS = [0, 3, 5, 7]
 # ── Domain types ───────────────────────────────────────────────────────────────
 
 
-@dataclass(slots=True)
+@dataclass
 class RoomCandidate:
-    """Raw candidate room from PMS crossed with local Room metadata and computed comboss."""
+    """Raw candidate room from PMS crossed with local Room metadata and computed combos."""
 
     room_id: str
     room_no: str
@@ -30,8 +29,9 @@ class RoomCandidate:
     price_weekends: float
     price_ny_songkran: float
     max_guests: int
-    all_combos: List[List[str]] = None
-    date_set: set = None
+    meta: Any = None
+    all_combos: List[List[str]] = field(default_factory=list)
+    date_set: set = field(default_factory=set)
 
 
 @dataclass
@@ -71,6 +71,13 @@ async def search_rooms(criteria: Criteria) -> RunSearchResult:
                 criteria.duration_nights or 1,
             )
             if rooms:
+                # Batch-fetch thumbnail URLs
+                room_ids = [r.room_id for r in rooms if r.room_id]
+                if room_ids:
+                    thumb_map = await room_service.get_first_photo_urls(room_ids)
+                    for r in rooms:
+                        if r.room_id:
+                            r.thumbnail_url = thumb_map.get(r.room_id)
                 return RunSearchResult(
                     rooms=rooms,
                     expanded_days=shift,
@@ -99,7 +106,7 @@ async def _search_rooms_window_candidates(
     search_end_dt = datetime.strptime(search_end, "%Y-%m-%d")
 
     # Tracker fetches dynamically and returns strictly clipped dates
-    availability = availability_service.get_availability(search_start_dt, search_end_dt)
+    availability = await availability_service.get_availability(search_start_dt, search_end_dt)
     room_metadata = await room_service.get_all_rooms()
 
     candidates = []
@@ -131,8 +138,7 @@ def _build_candidate(raw: RoomAvailabilityData, meta, room_no: str) -> RoomCandi
         price_weekends=meta.price_weekends_holidays,
         price_ny_songkran=meta.price_ny_songkran,
         max_guests=meta.max_guests,
-        all_combos=[],
-        date_set=set(),
+        meta=meta,
     )
 
 
@@ -142,6 +148,16 @@ def _finalize_candidates(
     """Merge raw available dates for each room and build Room."""
     merged = _merge_candidates_by_room(candidates, duration)
     return [_to_room(c, guests) for c in merged]
+
+
+def _parse_tags(raw_tags) -> list[str] | None:
+    """Parse tags from DB text field into a list of strings."""
+    if not raw_tags:
+        return None
+    if isinstance(raw_tags, list):
+        return raw_tags
+    # Try comma-separated
+    return [t.strip() for t in raw_tags.split(",") if t.strip()]
 
 
 def _to_room(room: RoomCandidate, guests: int) -> Room:
@@ -154,6 +170,29 @@ def _to_room(room: RoomCandidate, guests: int) -> Room:
                 AvailableDate(start_date=combo[0], end_date=combo[-1])
             )
 
+    meta = room.meta
+    enriched = {}
+    if meta:
+        enriched = dict(
+            room_id=getattr(meta, "id", None),
+            room_name=getattr(meta, "room_name", None),
+            summary=getattr(meta, "summary", None),
+            bed_queen=getattr(meta, "bed_queen", None),
+            bed_single=getattr(meta, "bed_single", None),
+            baths=getattr(meta, "baths", None),
+            size=getattr(meta, "size", None),
+            price_weekdays=getattr(meta, "price_weekdays", None),
+            price_weekends_holidays=getattr(meta, "price_weekends_holidays", None),
+            price_ny_songkran=getattr(meta, "price_ny_songkran", None),
+            steps_to_beach=getattr(meta, "steps_to_beach", None),
+            steps_to_restaurant=getattr(meta, "steps_to_restaurant", None),
+            sea_view=getattr(meta, "sea_view", None),
+            privacy=getattr(meta, "privacy", None),
+            room_design=getattr(meta, "room_design", None),
+            room_newness=getattr(meta, "room_newness", None),
+            tags=_parse_tags(getattr(meta, "tags", None)),
+        )
+
     return Room(
         room_no=room.room_no.upper(),
         room_type=room.room_type_name,
@@ -165,6 +204,7 @@ def _to_room(room: RoomCandidate, guests: int) -> Room:
             holiday=float(room.price_ny_songkran),
         ),
         extra_bed_required=extra_bed_req,
+        **enriched,
     )
 
 

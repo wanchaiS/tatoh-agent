@@ -32,6 +32,36 @@ class RoomService:
         rooms = await self.get_all_rooms()
         return ", ".join(r.room_name.upper() for r in rooms)
 
+    async def get_first_photo_urls(self, room_ids: list[int]) -> dict[int, str | None]:
+        """Return thumbnail URLs for multiple rooms in a single query."""
+        if not room_ids:
+            return {}
+        async with AsyncSessionLocal() as db:
+            from sqlalchemy import func
+            # Subquery to get the min sort_order photo per room_id
+            subq = (
+                select(
+                    RoomPhoto.room_id,
+                    func.min(RoomPhoto.sort_order).label("min_order"),
+                )
+                .where(RoomPhoto.room_id.in_(room_ids))
+                .group_by(RoomPhoto.room_id)
+                .subquery()
+            )
+            result = await db.execute(
+                select(RoomPhoto)
+                .join(
+                    subq,
+                    (RoomPhoto.room_id == subq.c.room_id)
+                    & (RoomPhoto.sort_order == subq.c.min_order),
+                )
+            )
+            photos = result.scalars().all()
+            return {
+                p.room_id: f"/static/photos/rooms/{p.room_id}/thumbnails/{p.filename}"
+                for p in photos
+            }
+
     async def get_first_photo_url(self, room_id: int) -> str | None:
         """Return the thumbnail URL for the first photo of a room, or None."""
         async with AsyncSessionLocal() as db:

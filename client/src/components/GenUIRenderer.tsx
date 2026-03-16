@@ -1,12 +1,15 @@
 import type { RoomData } from "./gen-ui-compopnents/RoomCard"
 import { RoomInfo } from "./gen-ui-compopnents/RoomInfo"
 import { RoomsList } from "./gen-ui-compopnents/RoomsList"
+import { SearchResultsList } from "./gen-ui-compopnents/SearchResultsList"
 import { SuggestedAnswers } from "./gen-ui-compopnents/SuggestedAnswers"
 
 type GenUIMessage =
-  | { type: "ui"; id: string; name: "rooms_list";        props: { loading?: boolean; rooms: RoomData[] } }
+  | { type: "ui"; id: string; name: "rooms_list";        props: { loading?: boolean; rooms: RoomData[] }, metadata: {} }
   | { type: "ui"; id: string; name: "room_detail";       props: { loading?: boolean; room: RoomData | null } }
   | { type: "ui"; id: string; name: "suggested_answers"; props: { options: string[] } }
+  | { type: "ui"; id: string; name: "search_result";     props: { rooms: RoomData[] } }
+
 
 interface GenUIRendererProps {
   message: GenUIMessage
@@ -39,6 +42,10 @@ export function GenUIRenderer({
         />
       )
     }
+    case "search_result":
+      return (
+        <SearchResultsList rooms={message.props.rooms} />
+      )
     case "suggested_answers": {
       const { options } = message.props
       if (!isLoading && !options.length) return null

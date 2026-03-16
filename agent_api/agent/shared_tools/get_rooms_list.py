@@ -22,12 +22,9 @@ async def get_rooms_list(state: Annotated[dict, InjectedState]) -> str:
     Get a list of all rooms with basic info: name, type, capacity, and pricing.
     Use this when the user asks to see all available rooms or wants an overview of room options.
     """
+    # bind anchor id to the last message so it can render with "messages" in the UI
     anchor_id = state.get("ui_anchor_id")
-    if anchor_id:
-        anchor_msg = AIMessage(id=anchor_id, content="")
-    else:
-        messages = state.get("messages", [])
-        anchor_msg = next((m for m in reversed(messages) if getattr(m, "type", None) == "ai"), None)
+    anchor_msg = AIMessage(id=anchor_id, content="")
 
     msg_id = str(uuid.uuid4())
     # Emit loading skeleton immediately

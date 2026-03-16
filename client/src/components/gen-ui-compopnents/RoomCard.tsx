@@ -21,6 +21,11 @@ export interface RoomData {
   room_newness: number
   tags: string[]
   thumbnail_url?: string
+
+  // Search result availability fields (optional)
+  available_dates?: { start_date: string; end_date: string }[]
+  nightly_rates?: { weekday: number; weekend: number; holiday: number }
+  extra_bed_required?: boolean
 }
 
 export function RoomCard({
@@ -68,7 +73,38 @@ export function RoomCard({
           <span className="font-bold text-tropical-coral">฿{room.price_weekdays.toLocaleString()}</span>
           <span className="text-xs font-normal text-muted-foreground ml-1">/ night</span>
         </div>
+        {room.available_dates && room.available_dates.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {room.available_dates.slice(0, 3).map((d, i) => (
+              <span
+                key={i}
+                className="rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-300 px-2 py-0.5 text-[10px] font-medium"
+              >
+                {formatDatePill(d.start_date, d.end_date)}
+              </span>
+            ))}
+            {room.available_dates.length > 3 && (
+              <span className="text-[10px] text-muted-foreground self-center">
+                +{room.available_dates.length - 3} more
+              </span>
+            )}
+          </div>
+        )}
+        {room.extra_bed_required && (
+          <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">Extra bed needed</div>
+        )}
       </div>
     </div>
   )
+}
+
+function formatDatePill(start: string, end: string): string {
+  const s = new Date(start + "T00:00:00")
+  const e = new Date(end + "T00:00:00")
+  const sMonth = s.toLocaleDateString("en-US", { month: "short" })
+  const eMonth = e.toLocaleDateString("en-US", { month: "short" })
+  if (sMonth === eMonth) {
+    return `${sMonth} ${s.getDate()}-${e.getDate()}`
+  }
+  return `${sMonth} ${s.getDate()} - ${eMonth} ${e.getDate()}`
 }

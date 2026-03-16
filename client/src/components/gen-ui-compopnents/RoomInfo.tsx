@@ -150,6 +150,38 @@ export function RoomInfo({ room, loading }: RoomInfoProps) {
           </div>
         </div>
 
+        {/* Available Dates (search results) */}
+        {room.available_dates && room.available_dates.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-foreground mb-2">Available Dates</h3>
+            <div className="flex flex-col gap-1.5">
+              {room.available_dates.map((d, i) => {
+                const start = new Date(d.start_date + "T00:00:00")
+                const end = new Date(d.end_date + "T00:00:00")
+                const nights = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+                const fmt = (dt: Date) => dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+                return (
+                  <div key={i} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-teal-600 dark:text-teal-400">↗</span>
+                      <span className="text-foreground">{fmt(start)}</span>
+                      <span className="text-muted-foreground">→</span>
+                      <span className="text-foreground">{fmt(end)}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{nights} {nights === 1 ? "night" : "nights"}</span>
+                  </div>
+                )
+              })}
+            </div>
+            {room.extra_bed_required && (
+              <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                <span>🛏</span>
+                <span>Extra bed needed (+฿500/night)</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tags */}
         {room.tags?.length > 0 && (
           <div className="flex flex-wrap gap-1.5">

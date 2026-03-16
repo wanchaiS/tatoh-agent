@@ -26,7 +26,7 @@ class RoomAvailabilityService:
         self.covered_ranges: List[Tuple[datetime, datetime]] = []
         self.rooms_availability: Dict[str, InternalRoomAvailabilityData] = {}
 
-    def get_availability(
+    async def get_availability(
         self, search_start: datetime, search_end: datetime
     ) -> Dict[str, RoomAvailabilityData]:
         """
@@ -45,7 +45,7 @@ class RoomAvailabilityService:
 
             if not covered:
                 # Fetch a 14-day window from PMS starting from current_date
-                pms_data = fetch_room_availability_window(
+                pms_data = await fetch_room_availability_window(
                     current_date.strftime("%Y-%m-%d")
                 )
                 pms_start = datetime.strptime(pms_data["from"], "%Y-%m-%d")

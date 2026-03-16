@@ -1,11 +1,11 @@
+import asyncio
 import logging
 import os
-import threading
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, NotRequired, Optional, TypedDict
 
-import requests
+import httpx
 from dotenv import load_dotenv
 
 from agent.utils.http_client import make_request
@@ -23,33 +23,39 @@ else:
     print(f"PMS Module: .env file not found at {_ENV_PATH}")
 
 # --- Private Module State ---
-# This dictionary is private to this module (prefixed with _)
 _state = {
-    "session": requests.Session(),
+    "client": None,  # Lazily initialized httpx.AsyncClient
     "token": os.getenv("PMS_ACCESS_TOKEN"),
     "token_expiry": 0,
-    "lock": threading.Lock(),
+    "lock": asyncio.Lock(),
     "base_url": os.getenv("PMS_BASE_URL").rstrip("/"),
     "hotel_code": os.getenv("PMS_HOTEL_CODE"),
     "username": os.getenv("PMS_USERNAME"),
     "password": os.getenv("PMS_PASSWORD"),
 }
 
-# Initialize session headers if we already have a token
-if _state["token"]:
-    _state["session"].headers.update(
-        {"Authorization": f"Bearer {_state['token']}", "Access-Token": _state["token"]}
-    )
-else:
+
+def _get_client() -> httpx.AsyncClient:
+    """Get or create the async HTTP client."""
+    if _state["client"] is None or _state["client"].is_closed:
+        headers = {}
+        if _state["token"]:
+            headers = {
+                "Authorization": f"Bearer {_state['token']}",
+                "Access-Token": _state["token"],
+            }
+        _state["client"] = httpx.AsyncClient(headers=headers)
+    return _state["client"]
+
+
+if not _state["token"]:
     print("PMS Module: No token found in environment on startup.")
 
 EXPECTED_PMS_VERSION = "1.62"
 
 
 def _update_env_file(key: str, value: str):
-    """
-    Updates the .env file with the given key-value pair.
-    """
+    """Update the .env file with the given key-value pair."""
     if not os.path.exists(_ENV_PATH):
         print(f"PMS Module: Cannot update token, {_ENV_PATH} not found.")
         return
@@ -75,13 +81,10 @@ def _update_env_file(key: str, value: str):
     os.environ[key] = value
 
 
-def login():
-    """
-    Authenticates with the PMS and updates the module-level state.
-    This is used as a callback by the http_client.
-    """
-    with _state["lock"]:
-        # Double-check if another thread already updated the token
+async def login():
+    """Authenticate with the PMS and update the module-level state."""
+    async with _state["lock"]:
+        # Double-check if another coroutine already updated the token
         if _state["token"] and time.time() < _state["token_expiry"] - 60:
             return
 
@@ -95,7 +98,8 @@ def login():
         }
 
         # Call the login endpoint directly (don't use make_request to avoid recursion)
-        response = _state["session"].post(
+        client = _get_client()
+        response = await client.post(
             f"{_state['base_url']}/auth", json=auth_data, timeout=15
         )
         response.raise_for_status()
@@ -104,12 +108,12 @@ def login():
         token = data.get("accessToken")
         _state["token"] = token
 
-        # Default expiry to 1 hour if not specified (JWT 'exp' is available in token but we'll use a safe default)
+        # Default expiry to 1 hour if not specified
         expires_in = 3600
         _state["token_expiry"] = time.time() + expires_in
 
-        # Update session headers for all future calls
-        _state["session"].headers.update(
+        # Update client headers for all future calls
+        client.headers.update(
             {"Authorization": f"Bearer {token}", "Access-Token": token}
         )
 
@@ -118,16 +122,13 @@ def login():
             _update_env_file("PMS_ACCESS_TOKEN", token)
 
 
-# TODO: Async Migration - Convert this function to `async def` and `await` the internal network calls.
-def fetch_room_availability_window(start_date: str) -> Dict[str, Any]:
-    """
-    Fetches a single 14-day window of room availability from the PMS, starting from start_date.
-    The response is not clipped, returning exactly what the PMS returns.
-    """
+async def fetch_room_availability_window(start_date: str) -> Dict[str, Any]:
+    """Fetch a single 14-day window of room availability from the PMS, starting from start_date."""
     try:
         url = f"{_state['base_url']}/calendar/detail/{start_date}"
-        api_response = make_request(
-            session=_state["session"], method="GET", url=url, login_cb=login
+        client = _get_client()
+        api_response = await make_request(
+            client=client, method="GET", url=url, login_cb=login
         )
         parsed_response = _parse_response(api_response)
         return parsed_response

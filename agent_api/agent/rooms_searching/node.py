@@ -1,14 +1,27 @@
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, RunnableLambda
+from langgraph.graph.ui import push_ui_message
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END
 from langgraph.types import Command
+import uuid
 
 from agent.criteria_discovery.schema import Criteria
 from agent.rooms_searching.schema import RoomSearchResult
 from agent.rooms_searching.search_rooms import RunSearchResult, search_rooms
 from agent.types import GlobalState
 
+
+
+def _room_to_ui_dict(room) -> dict:
+    """Convert a Room schema object to a dict matching the frontend RoomData interface."""
+    d = room.model_dump()
+    # Map room_id → id for frontend compatibility
+    d["id"] = d.pop("room_id", None) or 0
+    # Ensure room_name is set (fallback to room_no)
+    if not d.get("room_name"):
+        d["room_name"] = d.get("room_no", "")
+    return d
 
 
 async def room_searching_node(state: GlobalState, config: RunnableConfig):
@@ -49,6 +62,15 @@ async def room_searching_node(state: GlobalState, config: RunnableConfig):
     # Wrap blocking search in a RunnableLambda for observability tracing
     search_runnable = RunnableLambda(search_rooms).with_config({"run_name": "execute_pms_search"})
     search_result = await search_runnable.ainvoke(criteria)
+
+    # push ui messages
+    if search_result.rooms:
+        # bind anchor id to the last message so it can render with "messages" in the UI
+        anchor_id = state.get("messages", [])[-1].id or "not-found"
+        anchor_msg = AIMessage(id=anchor_id, content="")
+        msg_id = str(uuid.uuid4())
+        room_dicts = [_room_to_ui_dict(r) for r in search_result.rooms]
+        push_ui_message("search_result", {"rooms": room_dicts}, id=msg_id, message=anchor_msg)
 
     # Generate raw facts for agent state
     raw_summary = _build_search_results_summary(search_result, criteria)

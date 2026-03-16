@@ -31,6 +31,26 @@ class Room(BaseModel):
     nightly_rates: Rates
     extra_bed_required: bool = False
 
+    # Enriched fields (populated from room metadata)
+    room_id: int | None = None
+    room_name: str | None = None
+    summary: str | None = None
+    bed_queen: int | None = None
+    bed_single: int | None = None
+    baths: int | None = None
+    size: float | None = None
+    price_weekdays: float | None = None
+    price_weekends_holidays: float | None = None
+    price_ny_songkran: float | None = None
+    steps_to_beach: int | None = None
+    steps_to_restaurant: int | None = None
+    sea_view: int | None = None
+    privacy: int | None = None
+    room_design: int | None = None
+    room_newness: int | None = None
+    tags: list[str] | None = None
+    thumbnail_url: str | None = None
+
 
 class RoomSearchResult(BaseModel):
     rooms: List[Room]

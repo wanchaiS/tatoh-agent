@@ -53,7 +53,7 @@ async def criteria_discovery_node(state: GlobalState, config: RunnableConfig):
         # which will handle changes, questions, or unrelated messages
 
     # Generate anchor ID for UI message association
-    anchor_id = state["messages"][-1].id
+    anchor_id = state["messages"][-1].id or "not-found"
     state_with_anchor = {**state, "ui_anchor_id": anchor_id}
 
     sub_config = {**(config or {}), "recursion_limit": 10}
