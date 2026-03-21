@@ -4,10 +4,10 @@ from datetime import datetime
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
-from langgraph.graph import START, StateGraph
+from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from agent.criteria_discovery.schema import Criteria
+from agent.criteria_discovery.schema import Criteria, CriteriaDiscoveryState
 from agent.criteria_discovery.tools.update_criteria import update_criteria
 from agent.shared_tools import (
     find_boat_schedules,
@@ -19,38 +19,10 @@ from agent.shared_tools import (
     get_room_info,
     get_rooms_list,
 )
-from agent.types import GlobalState
 
-# ── Shared Q&A tools (always available) ──────────────────────────
-qa_tools = [
-    find_boat_schedules,
-    get_gopro_service_info,
-    get_kohtao_arrival_guide,
-    get_kohtao_current_weather,
-    get_kohtao_general_season,
-    get_room_gallery,
-    get_room_info,
-    get_rooms_list,
-]
-
-
-def build_system_prompt(
-    criteria: Criteria, today: str, *, pending_confirmation: bool = False
-) -> str:
+def build_system_prompt(criteria: Criteria, today: str) -> str:
     criteria_summary = json.dumps(criteria.model_dump(exclude_none=True), indent=2)
     criteria_summary = criteria_summary if criteria_summary != "{}" else "None yet."
-
-    confirmation_note = ""
-    if pending_confirmation:
-        confirmation_note = (
-            "\nConfirmation Status: PENDING — All criteria were ready and the user was already shown "
-            "the booking summary and asked to confirm, but their latest message was not a clear 'yes'. "
-            "They may want to change something, ask a question, or said something unrelated. "
-            "Respond naturally: if they want changes, use `update_criteria`; if they ask a question, answer it; "
-            "if unrelated, answer briefly and steer back. "
-            "IMPORTANT: Do NOT re-present the full booking summary — it was already shown to the user. "
-            "Just handle their message and end with a brief one-liner like 'ยืนยันได้เลยนะคะเมื่อพร้อมค่ะ'."
-        )
 
     return f"""You are Cooper (คูเปอร์), the welcoming first point of contact for Tatoh Resort (ตาโต๊ะรีสอร์ท), Koh Tao.
 Always reply in the same language the user has been speaking.
@@ -58,7 +30,7 @@ Address the user kindly as "คุณลูกค้า" when speaking Thai.
 
 [CONTEXT]
 Today's Date: {today}
-Current Booking State: {criteria_summary}{confirmation_note}
+Current Booking State: {criteria_summary}
 
 [CORE DIRECTIVE]
 Your primary goal is TO GATHER INFORMATION and answer questions. You must collect all booking criteria before we can check room availability.
@@ -71,7 +43,7 @@ You are responsible for orchestrating tools. You can call multiple tools in the 
    - YOU are responsible for resolving dates to YYYY-MM-DD before calling the tool. See [DATE RESOLUTION] below.
    - date_windows is a list — you can pass multiple windows in one call.
 
-2. WHEN ALL CRITERIA ARE READY: When `update_criteria` returns "All criteria ready...", present a friendly, natural summary of the booking criteria to the user and ask for their confirmation. The system will handle the user's confirmation response automatically — you do NOT need to do anything special when they confirm.
+2. WHEN ALL CRITERIA ARE READY: When `update_criteria` returns "All criteria ready...", present a brief summary of the booking criteria and tell the user you are now searching for available rooms. Do NOT ask for confirmation — just state the summary and proceed.
 
 3. RESORT Q&A: Use your specific lookup tools for room details, prices, policies, amenities, and activities. NEVER use pre-trained knowledge for resort facts.
 
@@ -99,7 +71,7 @@ Do NOT ask which specific nights — the system searches the window automaticall
 
 RULE 2 — DURATION NOT PROVIDED, INFERRABLE:
 If the user gives a tight date range that clearly implies exact check-in/out (e.g. "วันที่ 10-12 พฤษภาคม"),
-you MAY infer `duration_nights` = (end - start) days. The user will confirm in the confirmation step.
+you MAY infer `duration_nights` = (end - start) days.
 
 RULE 3 — DURATION NOT PROVIDED, NOT INFERRABLE:
 If the user gives a broad/vague range (e.g. "เดือนพฤษภาคม", "ช่วงสงกรานต์") without stating duration,
@@ -143,11 +115,11 @@ DATE EXPRESSION EXAMPLES:
 YEAR AMBIGUITY: If a month is mentioned without a year and that month has already passed this year, ask the user to confirm the year BEFORE calling `update_criteria`.
 
 [CONFIRMATION SUMMARY FORMAT]
-When all criteria are ready, present the summary in a natural, friendly way. Example:
-"คูเปอร์ขอสรุปให้นะคะ — คุณลูกค้าต้องการเช็คห้องว่าง 2 คืน สำหรับ 2 คน:
+When all criteria are ready, present the summary as a statement (no question). Example:
+"คูเปอร์ขอสรุปนะคะ — คุณลูกค้าต้องการเช็คห้องว่าง 2 คืน สำหรับ 2 คน:
 • 11-13 พฤษภาคม
 • 26-28 พฤษภาคม
-ถูกต้องไหมคะ? ถ้าถูกต้องคูเปอร์จะเช็คให้เลยนะคะ"
+คูเปอร์กำลังเช็คห้องว่างให้เลยนะคะ"
 
 [AMBIGUITY RESOLUTION]
 - If user provides a month without a year AND that month has already passed this year, ask to confirm the year first.
@@ -161,35 +133,44 @@ You MUST act like a human receptionist, not a robot or a system form.
 4. ASKING FOR INFO: Ask for missing information directly and naturally — do NOT narrate what you just did internally (e.g. never say "I've sorted the dates" or "I've recorded that"). Just ask for what's needed. Keep it to a single, natural sentence at the end.
 """
 
+# ── Shared Q&A tools (always available) ──────────────────────────
+qa_tools = [
+    find_boat_schedules,
+    get_gopro_service_info,
+    get_kohtao_arrival_guide,
+    get_kohtao_current_weather,
+    get_kohtao_general_season,
+    get_room_gallery,
+    get_room_info,
+    get_rooms_list,
+]
 
-# ── Static sub-graph on GlobalState ──────────────────────────────
 all_tools = qa_tools + [update_criteria]
-_model = ChatOpenAI(model="openai/gpt-5.1-instant", temperature=0, streaming=True)
-_llm_with_tools = _model.bind_tools(all_tools)
-_tool_node = ToolNode(all_tools, handle_tool_errors=True)
+model = ChatOpenAI(model="openai/gpt-5.1-instant", temperature=0, streaming=True)
+llm_with_tools = model.bind_tools(all_tools)
+tool_node = ToolNode(all_tools, handle_tool_errors=True, messages_key="subgraph_messages")
 
+async def agent_node(state: CriteriaDiscoveryState, config: RunnableConfig):
 
-async def _agent_node(state: GlobalState, config: RunnableConfig):
     today = datetime.now().strftime("%Y-%m-%d")
-    criteria = state.get("criteria") or Criteria()
-    pending_confirmation = state.get("criteria_ready", False) and not state.get(
-        "criteria_confirmed", False
-    )
-    system_prompt = build_system_prompt(
-        criteria, today, pending_confirmation=pending_confirmation
-    )
-    response = await _llm_with_tools.ainvoke(
-        [SystemMessage(content=system_prompt)] + state["messages"],
+    system_prompt = build_system_prompt(state["criteria"], today)
+
+    response = await llm_with_tools.ainvoke(
+        [SystemMessage(content=system_prompt)] + state["subgraph_messages"],
         config
     )
-    return {"messages": [response]}
 
+    return {"subgraph_messages": [response]}
 
-_builder = StateGraph(GlobalState)
-_builder.add_node("discovery_agent", _agent_node)
-_builder.add_node("tools", _tool_node)
-_builder.add_edge(START, "discovery_agent")
-_builder.add_conditional_edges("discovery_agent", tools_condition)
-_builder.add_edge("tools", "discovery_agent")
+def route_tools(state):
+    return tools_condition(state, messages_key="subgraph_messages")
 
-criteria_discovery_graph = _builder.compile()
+# build subgraph
+subgraph = StateGraph(CriteriaDiscoveryState)
+subgraph.add_node("criteria_agent", agent_node)
+subgraph.add_node("tools", tool_node)
+subgraph.set_entry_point("criteria_agent")
+subgraph.add_conditional_edges("criteria_agent", route_tools)
+subgraph.add_edge("tools", "criteria_agent")
+
+criteria_discovery_graph = subgraph.compile() # Ephemeral (no checkpointer)

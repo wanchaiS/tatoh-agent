@@ -1,7 +1,12 @@
+import operator
 from datetime import datetime, timedelta
 from typing import List, Optional
+from typing_extensions import Annotated, TypedDict
 
+from langchain_core.messages import AnyMessage
+from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
+
 
 
 class DateWindow(BaseModel):
@@ -22,6 +27,7 @@ class Criteria(BaseModel):
     duration_nights: Optional[int] = Field(None)
     total_guests: Optional[int] = Field(None)
     requested_rooms: Optional[List[str]] = Field(None)
+    requested_room_types: Optional[List[str]] = Field(None)
 
     def get_expanded_windows(self, expanded_days: int) -> List[tuple]:
         """
@@ -53,3 +59,14 @@ class Criteria(BaseModel):
             for w in sorted(self.date_windows, key=lambda w: w.start_date)
         )
         return f"{windows_key}_{self.duration_nights}_{self.total_guests}"
+
+class PendingUIItem(TypedDict):
+    name: str
+    props: dict
+    id: str
+
+class CriteriaDiscoveryState(TypedDict):
+    subgraph_messages: Annotated[list[AnyMessage], add_messages]
+    criteria: Criteria
+    is_criteria_ready: bool
+    pending_ui: Annotated[list[PendingUIItem], operator.add]

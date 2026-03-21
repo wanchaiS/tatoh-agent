@@ -1,10 +1,8 @@
 import uuid
-from typing import Annotated
 
-from langchain.tools import tool
-from langchain_core.messages import AIMessage
-from langgraph.graph.ui import push_ui_message
-from langgraph.prebuilt import InjectedState
+from langchain.tools import ToolRuntime, tool
+from langchain_core.messages import ToolMessage
+from langgraph.types import Command
 
 from agent.services.room_service import room_service
 from agent.utils.tool_errors import handle_tool_error
@@ -17,38 +15,47 @@ def _model_to_dict(model):
 
 @tool
 @handle_tool_error
-async def get_rooms_list(state: Annotated[dict, InjectedState]) -> str:
+async def get_rooms_list(runtime: ToolRuntime) -> Command:
     """
     Get a list of all rooms with basic info: name, type, capacity, and pricing.
     Use this when the user asks to see all available rooms or wants an overview of room options.
     """
-    # bind anchor id to the last message so it can render with "messages" in the UI
-    anchor_id = state.get("ui_anchor_id")
-    anchor_msg = AIMessage(id=anchor_id, content="")
-
-    msg_id = str(uuid.uuid4())
-    # Emit loading skeleton immediately
-    push_ui_message("rooms_list", {"loading": True, "rooms": []}, id=msg_id, message=anchor_msg)
-
     rooms = await room_service.get_all_rooms()
 
     if not rooms:
-        push_ui_message("rooms_list", {"loading": False, "rooms": []}, id=msg_id, message=anchor_msg)
-        return "No rooms data available"
+        return Command(update={
+            "pending_ui": [{
+                "name": "rooms_list",
+                "props": {"loading": False, "rooms": []},
+                "id": str(uuid.uuid4()),
+            }],
+            "subgraph_messages": [ToolMessage(
+                content="No rooms data available",
+                tool_call_id=runtime.tool_call_id,
+            )],
+        })
 
-    # Emit real data (replaces loading state via reducer)
     room_dicts = []
     for r in rooms:
         d = _model_to_dict(r)
         d["thumbnail_url"] = await room_service.get_first_photo_url(r.id)
         room_dicts.append(d)
-    push_ui_message("rooms_list", {"loading": False, "rooms": room_dicts}, id=msg_id, message=anchor_msg)
 
     prices = [r.price_weekdays for r in rooms]
     types = sorted(set(r.room_type for r in rooms))
 
-    return (
-        f"Rendered {len(rooms)} rooms to the user via UI cards. "
-        f"Price range: {min(prices):.0f}-{max(prices):.0f} baht/night. "
-        f"Room types: {', '.join(types)}."
-    )
+    return Command(update={
+        "pending_ui": [{
+            "name": "rooms_list",
+            "props": {"loading": False, "rooms": room_dicts},
+            "id": str(uuid.uuid4()),
+        }],
+        "subgraph_messages": [ToolMessage(
+            content=(
+                f"Rendered {len(rooms)} rooms to the user via UI cards. "
+                f"Price range: {min(prices):.0f}-{max(prices):.0f} baht/night. "
+                f"Room types: {', '.join(types)}."
+            ),
+            tool_call_id=runtime.tool_call_id,
+        )],
+    })

@@ -1,3 +1,4 @@
+import { memo } from "react"
 import type { RoomData } from "./gen-ui-compopnents/RoomCard"
 import { RoomInfo } from "./gen-ui-compopnents/RoomInfo"
 import { RoomsList } from "./gen-ui-compopnents/RoomsList"
@@ -19,7 +20,7 @@ interface GenUIRendererProps {
 
 export type { GenUIMessage }
 
-export function GenUIRenderer({
+export const GenUIRenderer = memo(function GenUIRenderer({
   message,
   onSubmitMessage,
   isLoading,
@@ -60,4 +61,4 @@ export function GenUIRenderer({
     default:
       return null
   }
-}
+})

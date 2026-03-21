@@ -5,7 +5,6 @@ from typing import List, Optional
 from langchain.tools import ToolRuntime
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
-from langgraph.graph.ui import push_ui_message
 from langgraph.types import Command
 
 from agent.glossary import t
@@ -31,8 +30,6 @@ def _get_missing(candidate: Criteria) -> list[str]:
         missing.append("date_windows")
     if not candidate.duration_nights:
         missing.append("duration_nights")
-    if not candidate.total_guests:
-        missing.append("total_guests")
     return missing
 
 
@@ -129,9 +126,8 @@ async def update_criteria(
             except Exception as e:
                 return Command(
                     update={
-                        "criteria_ready": False,  # failed validation should also reset validation result
-                        "criteria_confirmed": False,
-                        "messages": [
+                        "is_criteria_ready": False,  # failed validation should also reset validation result
+                        "subgraph_messages": [
                             ToolMessage(
                                 content=f"Error parsing window {raw}: {e}",
                                 tool_call_id=runtime.tool_call_id,
@@ -165,9 +161,8 @@ async def update_criteria(
         parts.extend(f"  Error: {e}" for e in errors)
         return Command(
             update={
-                "criteria_ready": False,  # failed validation should also reset validation result
-                "criteria_confirmed": False,
-                "messages": [
+                "is_criteria_ready": False,  # failed validation should also reset validation result
+                "subgraph_messages": [
                     ToolMessage(
                         content="\n".join(parts), tool_call_id=runtime.tool_call_id
                     )
@@ -175,7 +170,6 @@ async def update_criteria(
             }
         )
 
-    # ── Build and persist candidate ───────────────────────────────────
     updates = {}
     if incoming_windows:
         updates["date_windows"] = incoming_windows  # agent always passes the full list
@@ -189,7 +183,7 @@ async def update_criteria(
     if not updates:
         return Command(
             update={
-                "messages": [
+                "subgraph_messages": [
                     ToolMessage(
                         content="No updates provided. Specify at least one field to update.",
                         tool_call_id=runtime.tool_call_id,
@@ -206,36 +200,16 @@ async def update_criteria(
         parts.append(f"Still missing: {', '.join(missing)}")
     else:
         parts.append(
-            "All criteria ready. Present a natural, friendly summary of the booking criteria "
-            "to the user and ask for their confirmation."
-        )
-
-    if not missing:
-        lang = runtime.state.get("user_language", "th")
-        anchor_id = runtime.state.get("ui_anchor_id")
-        if anchor_id:
-            anchor_msg = AIMessage(id=anchor_id, content="")
-        else:
-            messages = runtime.state.get("messages", [])
-            anchor_msg = next((m for m in reversed(messages) if getattr(m, "type", None) == "ai"), None)
-        push_ui_message(
-            "suggested_answers",
-            {
-                "options": [
-                    t("confirm_criteria", lang),
-                    t("update_criteria", lang),
-                ],
-            },
-            message=anchor_msg,
+            "All criteria ready. Present a brief summary of the booking criteria "
+            "and tell the user you are now searching for available rooms."
         )
 
     # update criteria and set validation result
     return Command(
         update={
             "criteria": candidate,
-            "criteria_ready": not bool(missing),
-            "criteria_confirmed": False,
-            "messages": [
+            "is_criteria_ready": not bool(missing),
+            "subgraph_messages": [
                 ToolMessage(content="\n".join(parts), tool_call_id=runtime.tool_call_id)
             ],
         }

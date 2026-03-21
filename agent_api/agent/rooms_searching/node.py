@@ -31,10 +31,9 @@ async def room_searching_node(state: GlobalState, config: RunnableConfig):
     """
     criteria = state.get("criteria")
     criteria_ready = state.get("criteria_ready")
-    criteria_confirmed = state.get("criteria_confirmed")
-    if not criteria_ready or not criteria_confirmed:
+    if not criteria_ready:
         error_msg = (
-            f"Criteria not ready or confirmed something went wrong. Let's start over."
+            f"Criteria not ready. Something went wrong. Let's start over."
         )
         return Command(
             goto="criteria_discovery_node",
@@ -43,7 +42,6 @@ async def room_searching_node(state: GlobalState, config: RunnableConfig):
                 "criteria": Criteria(),
                 "room_search_result": None,
                 "criteria_ready": False,
-                "criteria_confirmed": False,
                 "phase": "criteria_discovery",
             },
         )
@@ -62,15 +60,6 @@ async def room_searching_node(state: GlobalState, config: RunnableConfig):
     # Wrap blocking search in a RunnableLambda for observability tracing
     search_runnable = RunnableLambda(search_rooms).with_config({"run_name": "execute_pms_search"})
     search_result = await search_runnable.ainvoke(criteria)
-
-    # push ui messages
-    if search_result.rooms:
-        # bind anchor id to the last message so it can render with "messages" in the UI
-        anchor_id = state.get("messages", [])[-1].id or "not-found"
-        anchor_msg = AIMessage(id=anchor_id, content="")
-        msg_id = str(uuid.uuid4())
-        room_dicts = [_room_to_ui_dict(r) for r in search_result.rooms]
-        push_ui_message("search_result", {"rooms": room_dicts}, id=msg_id, message=anchor_msg)
 
     # Generate raw facts for agent state
     raw_summary = _build_search_results_summary(search_result, criteria)
@@ -95,6 +84,12 @@ async def room_searching_node(state: GlobalState, config: RunnableConfig):
         config
     )
 
+    # Push UI after AI response so we can anchor to it
+    if search_result.rooms:
+        msg_id = str(uuid.uuid4())
+        room_dicts = [_room_to_ui_dict(r) for r in search_result.rooms]
+        push_ui_message("search_result", {"rooms": room_dicts}, id=msg_id, message=AIMessage(id=response.id, content=""))
+
     if not search_result.rooms:
         # No rooms found case: Transition back to discovery phase so user can adjust criteria
         new_criteria = criteria.model_copy()
@@ -107,7 +102,6 @@ async def room_searching_node(state: GlobalState, config: RunnableConfig):
                 "messages": [response],
                 "criteria": new_criteria,
                 "criteria_ready": False,
-                "criteria_confirmed": False,
                 "room_search_result": RoomSearchResult(
                     criteria_id=search_result.criteria_id,
                     rooms=[],

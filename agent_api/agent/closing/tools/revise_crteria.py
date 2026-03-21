@@ -15,7 +15,6 @@ def revise_criteria(runtime: ToolRuntime = None):
         update={
             "phase": "criteria_discovery",
             "criteria_ready": False,
-            "criteria_confirmed": False,
             "closing_state": ClosingState(),
             "messages": [
                 ToolMessage(
