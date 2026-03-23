@@ -18,12 +18,12 @@ async def get_room_gallery(room_number: str) -> List[str] | str:
     Args:
         room_number: The room identifier (e.g., 'S1', 'V2').
     """
-    error_msg = await room_service.validate_room(room_number)
+    canonical, error_msg = await room_service.resolve_room_name(room_number)
     if error_msg:
         return error_msg
 
     # Normalize room number to lowercase for GDrive path consistency
-    room_id = room_number.strip().lower()
+    room_id = canonical.strip().lower()
     path = f"/cooper-project/data/photos/rooms/{room_id}"
 
     return list_images_in_folder(path)

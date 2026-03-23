@@ -6,9 +6,11 @@ import { RoomCardFocusView } from "./RoomFocusView"
 export function SearchResultsList({
   rooms,
   loading,
+  label,
 }: {
   rooms: RoomData[]
   loading?: boolean
+  label?: string
 }) {
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
 
@@ -49,6 +51,9 @@ export function SearchResultsList({
 
   return (
     <div className="w-full">
+      {label && (
+        <div className="text-xs font-medium text-muted-foreground mb-1 px-0.5">{label}</div>
+      )}
       <div className="flex items-baseline gap-2 mb-2.5 px-0.5">
         <span className="font-bold text-lg text-foreground">{rooms.length}</span>
         <span className="font-semibold text-base text-foreground">{rooms.length === 1 ? "room" : "rooms"} available</span>

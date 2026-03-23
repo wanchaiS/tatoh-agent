@@ -1,5 +1,16 @@
 import { useState } from "react"
 
+export interface DateRange {
+  start_date: string
+  end_date: string
+}
+
+export interface RoomAvailability {
+  date_ranges: DateRange[]
+  nightly_rates: { weekday: number; weekend: number; holiday: number }
+  extra_bed_required: boolean
+}
+
 export interface RoomData {
   id: number
   room_name: string
@@ -21,11 +32,7 @@ export interface RoomData {
   room_newness: number
   tags: string[]
   thumbnail_url?: string
-
-  // Search result availability fields (optional)
-  available_dates?: { start_date: string; end_date: string }[]
-  nightly_rates?: { weekday: number; weekend: number; holiday: number }
-  extra_bed_required?: boolean
+  availability?: RoomAvailability
 }
 
 export function RoomCard({
@@ -73,9 +80,9 @@ export function RoomCard({
           <span className="font-bold text-tropical-coral">฿{room.price_weekdays.toLocaleString()}</span>
           <span className="text-xs font-normal text-muted-foreground ml-1">/ night</span>
         </div>
-        {room.available_dates && room.available_dates.length > 0 && (
+        {room.availability?.date_ranges && room.availability.date_ranges.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">
-            {room.available_dates.slice(0, 3).map((d, i) => (
+            {room.availability.date_ranges.slice(0, 3).map((d, i) => (
               <span
                 key={i}
                 className="rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-300 px-2 py-0.5 text-[10px] font-medium"
@@ -83,14 +90,14 @@ export function RoomCard({
                 {formatDatePill(d.start_date, d.end_date)}
               </span>
             ))}
-            {room.available_dates.length > 3 && (
+            {room.availability.date_ranges.length > 3 && (
               <span className="text-[10px] text-muted-foreground self-center">
-                +{room.available_dates.length - 3} more
+                +{room.availability.date_ranges.length - 3} more
               </span>
             )}
           </div>
         )}
-        {room.extra_bed_required && (
+        {room.availability?.extra_bed_required && (
           <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">Extra bed needed</div>
         )}
       </div>

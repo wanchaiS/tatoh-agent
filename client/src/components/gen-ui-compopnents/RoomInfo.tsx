@@ -151,11 +151,11 @@ export function RoomInfo({ room, loading }: RoomInfoProps) {
         </div>
 
         {/* Available Dates (search results) */}
-        {room.available_dates && room.available_dates.length > 0 && (
+        {room.availability?.date_ranges && room.availability.date_ranges.length > 0 && (
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-2">Available Dates</h3>
             <div className="flex flex-col gap-1.5">
-              {room.available_dates.map((d, i) => {
+              {room.availability.date_ranges.map((d, i) => {
                 const start = new Date(d.start_date + "T00:00:00")
                 const end = new Date(d.end_date + "T00:00:00")
                 const nights = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
@@ -173,7 +173,7 @@ export function RoomInfo({ room, loading }: RoomInfoProps) {
                 )
               })}
             </div>
-            {room.extra_bed_required && (
+            {room.availability?.extra_bed_required && (
               <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
                 <span>🛏</span>
                 <span>Extra bed needed (+฿500/night)</span>

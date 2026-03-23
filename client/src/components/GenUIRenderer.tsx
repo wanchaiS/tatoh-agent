@@ -9,7 +9,7 @@ type GenUIMessage =
   | { type: "ui"; id: string; name: "rooms_list";        props: { loading?: boolean; rooms: RoomData[] }, metadata: {} }
   | { type: "ui"; id: string; name: "room_detail";       props: { loading?: boolean; room: RoomData | null } }
   | { type: "ui"; id: string; name: "suggested_answers"; props: { options: string[] } }
-  | { type: "ui"; id: string; name: "search_result";     props: { rooms: RoomData[] } }
+  | { type: "ui"; id: string; name: "search_window";     props: { rooms: RoomData[]; label?: string; criteria_id?: string } }
 
 
 interface GenUIRendererProps {
@@ -43,9 +43,9 @@ export const GenUIRenderer = memo(function GenUIRenderer({
         />
       )
     }
-    case "search_result":
+    case "search_window":
       return (
-        <SearchResultsList rooms={message.props.rooms} />
+        <SearchResultsList rooms={message.props.rooms} label={message.props.label} />
       )
     case "suggested_answers": {
       const { options } = message.props

@@ -1,34 +1,27 @@
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Set, Tuple, TypedDict
+from typing import Dict, List, Set, Tuple, TypedDict
 
-from agent.utils.pms_client import fetch_room_availability_window
-
-
-class RoomAvailabilityData(TypedDict):
-    room_id: str
-    room_no: str
-    room_type_id: str
-    room_type_name: str
-    dates: List[str]
+from agent.utils.pms_client import PmsRoomAvailability, fetch_room_availability_window
 
 
 class InternalRoomAvailabilityData(TypedDict):
-    room_id: str
-    room_no: str
-    room_type_id: str
-    room_type_name: str
-    dates: Set[str]
+    """Internal cache representation — dates kept as a set for efficient merge/discard."""
+    room_id: str          # PMS internal room ID
+    room_no: str          # Room number, lowercased (e.g. "s5")
+    room_type_id: str     # PMS internal room type ID
+    room_type_name: str   # Human-readable room type (e.g. "Sea View Bungalow")
+    dates: Set[str]       # Available dates as YYYY-MM-DD strings (mutable set for merging)
 
 
 class RoomAvailabilityService:
-    def __init__(self):
+    def __init__(self) -> None:
         # List of [start, end) tuples covering what we have fetched from PMS
         self.covered_ranges: List[Tuple[datetime, datetime]] = []
         self.rooms_availability: Dict[str, InternalRoomAvailabilityData] = {}
 
     async def get_availability(
         self, search_start: datetime, search_end: datetime
-    ) -> Dict[str, RoomAvailabilityData]:
+    ) -> Dict[str, PmsRoomAvailability]:
         """
         Dynamically fetches missing chunks of availability to cover [search_start, search_end)
         and returns the strictly clipped availability for that exact window.
@@ -48,8 +41,8 @@ class RoomAvailabilityService:
                 pms_data = await fetch_room_availability_window(
                     current_date.strftime("%Y-%m-%d")
                 )
-                pms_start = datetime.strptime(pms_data["from"], "%Y-%m-%d")
-                pms_end = datetime.strptime(pms_data["to"], "%Y-%m-%d") + timedelta(
+                pms_start = datetime.strptime(pms_data["from_date"], "%Y-%m-%d")
+                pms_end = datetime.strptime(pms_data["to_date"], "%Y-%m-%d") + timedelta(
                     days=1
                 )
 
@@ -78,9 +71,15 @@ class RoomAvailabilityService:
             (search_start + timedelta(days=i)).strftime("%Y-%m-%d")
             for i in range((search_end - search_start).days)
         }
-        result_rooms = {}
+        result_rooms: Dict[str, PmsRoomAvailability] = {}
         for room_no, room_info in self.rooms_availability.items():
             filtered_dates = room_info["dates"].intersection(valid_dates)
-            result_rooms[room_no] = {**room_info, "dates": sorted(list(filtered_dates))}
+            result_rooms[room_no] = {
+                "room_id": room_info["room_id"],
+                "room_no": room_info["room_no"],
+                "room_type_id": room_info["room_type_id"],
+                "room_type_name": room_info["room_type_name"],
+                "dates": sorted(list(filtered_dates)),
+            }
 
         return result_rooms

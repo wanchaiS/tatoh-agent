@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from agent.rooms_searching.schema import (
+from agent.schemas import (
     ExtraBedInfo,
     PriceBreakdownItem,
     Rates,

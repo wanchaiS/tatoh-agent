@@ -4,13 +4,9 @@ from langchain.tools import ToolRuntime, tool
 from langchain_core.messages import ToolMessage
 from langgraph.types import Command
 
+from agent.schemas import RoomCard
 from agent.services.room_service import room_service
 from agent.utils.tool_errors import handle_tool_error
-
-
-def _model_to_dict(model):
-    """Convert SQLAlchemy model to dict, excluding internal state."""
-    return {k: v for k, v in model.__dict__.items() if not k.startswith('_')}
 
 
 @tool
@@ -24,35 +20,26 @@ async def get_rooms_list(runtime: ToolRuntime) -> Command:
 
     if not rooms:
         return Command(update={
-            "pending_ui": [{
-                "name": "rooms_list",
-                "props": {"loading": False, "rooms": []},
-                "id": str(uuid.uuid4()),
-            }],
-            "subgraph_messages": [ToolMessage(
+            "pending_ui": [{"name": "rooms_list", "props": {"loading": False, "rooms": []}, "id": str(uuid.uuid4())}],
+            "messages": [ToolMessage(
                 content="No rooms data available",
                 tool_call_id=runtime.tool_call_id,
             )],
         })
 
-    room_dicts = []
-    for r in rooms:
-        d = _model_to_dict(r)
-        d["thumbnail_url"] = await room_service.get_first_photo_url(r.id)
-        room_dicts.append(d)
+    room_ids = [r.id for r in rooms]
+    thumb_map = await room_service.get_first_photo_urls(room_ids)
+    cards = [RoomCard.from_db(r, thumbnail_url=thumb_map.get(r.id)) for r in rooms]
 
-    prices = [r.price_weekdays for r in rooms]
-    types = sorted(set(r.room_type for r in rooms))
+    prices = [c.price_weekdays for c in cards]
+    types = sorted(set(c.room_type for c in cards))
 
+    push_ui_item = {"name": "rooms_list", "props": {"loading": False, "rooms": [c.model_dump() for c in cards]}, "id": str(uuid.uuid4())}
     return Command(update={
-        "pending_ui": [{
-            "name": "rooms_list",
-            "props": {"loading": False, "rooms": room_dicts},
-            "id": str(uuid.uuid4()),
-        }],
-        "subgraph_messages": [ToolMessage(
+        "pending_ui": [push_ui_item],
+        "messages": [ToolMessage(
             content=(
-                f"Rendered {len(rooms)} rooms to the user via UI cards. "
+                f"Rendered {len(cards)} rooms to the user via UI cards. "
                 f"Price range: {min(prices):.0f}-{max(prices):.0f} baht/night. "
                 f"Room types: {', '.join(types)}."
             ),
