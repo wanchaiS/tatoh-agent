@@ -6,6 +6,9 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
 
+from agent.services.config import build_runnable_config
+from agent.types import DEFAULT_PHASE
+
 router = APIRouter()
 
 
@@ -37,7 +40,7 @@ def _sse_event(event: str, data: object) -> str:
 async def stream_run(thread_id: str, body: RunInput, request: Request):
     """Stream a graph run, matching LangGraph Agent Server SSE format."""
     graph = request.app.state.graph
-    config = {"configurable": {"thread_id": thread_id}}
+    config = build_runnable_config(thread_id=thread_id)
     run_id = str(uuid.uuid4())
 
     stream_modes = (
@@ -56,8 +59,11 @@ async def stream_run(thread_id: str, body: RunInput, request: Request):
 
         try:
             # When stream_mode is a list, astream yields tuples
+            input_data = body.input or {}
+            input_data.setdefault("phase", DEFAULT_PHASE)
+
             async for chunk in graph.astream(
-                body.input,
+                input_data,
                 config,
                 stream_mode=lg_stream_modes,
                 subgraphs=body.stream_subgraphs,

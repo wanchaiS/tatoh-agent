@@ -6,6 +6,8 @@ from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from agent.root_graph import graph_builder
+from agent.services.config import singleton_config, wrap_with_scoped_filler
+from agent.services.singletons import close_singletons
 from db.database import DATABASE_URL
 from api.config import STATIC_DIR
 from api.rooms.router import router as rooms_router
@@ -20,8 +22,14 @@ async def lifespan(app: FastAPI):
         DATABASE_URL,
     ) as checkpointer:
         await checkpointer.setup()
-        app.state.graph = graph_builder.compile(checkpointer=checkpointer)
+        app.state.graph = wrap_with_scoped_filler(
+            graph_builder.compile(checkpointer=checkpointer).with_config(
+                {"configurable": singleton_config()}
+            )
+        )
         yield
+
+    await close_singletons()
 
 
 app = FastAPI(title="Tatoh Agent Server", lifespan=lifespan)
