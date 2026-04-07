@@ -8,7 +8,7 @@ from PIL import Image as PILImage
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.config import STATIC_DIR
+from core.config import STATIC_DIR, STATIC_URL_PREFIX
 from api.dependencies import get_db
 from api.rooms.photo_schemas import PhotoReorderItem, PhotoResponse
 from db.models import RoomPhoto, Room as RoomModel
@@ -52,8 +52,8 @@ async def list_photos(room_id: int, db: AsyncSession = Depends(get_db)):
             id=photo.id,
             filename=photo.filename,
             sort_order=photo.sort_order,
-            url=f"/static/photos/rooms/{room_id}/{photo.filename}",
-            thumbnail_url=f"/static/photos/rooms/{room_id}/thumbnails/{photo.filename}",
+            url=f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/{photo.filename}",
+            thumbnail_url=f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/thumbnails/{photo.filename}",
         )
         for photo in photos
     ]
@@ -117,8 +117,8 @@ async def upload_photo(
         id=photo.id,
         filename=photo.filename,
         sort_order=photo.sort_order,
-        url=f"/static/photos/rooms/{room_id}/{filename}",
-        thumbnail_url=f"/static/photos/rooms/{room_id}/thumbnails/{filename}",
+        url=f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/{filename}",
+        thumbnail_url=f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/thumbnails/{filename}",
     )
 
 

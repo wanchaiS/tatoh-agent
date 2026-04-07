@@ -1,16 +1,16 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from agent.services.config import build_runnable_config
-from agent.types import DEFAULT_PHASE
+from api.dependencies import get_db
+from agent.context.agent_service_provider import AgentServiceProvider
 
 router = APIRouter()
-
 
 class RunInput(BaseModel):
     input: dict | None = None
@@ -37,10 +37,17 @@ def _sse_event(event: str, data: object) -> str:
     return f"event: {event}\ndata: {json.dumps(_serialize(data), default=str)}\n\n"
 
 @router.post("/threads/{thread_id}/runs/stream")
-async def stream_run(thread_id: str, body: RunInput, request: Request):
+async def stream_run(
+    thread_id: str, 
+    body: RunInput, 
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
     """Stream a graph run, matching LangGraph Agent Server SSE format."""
+
     graph = request.app.state.graph
-    config = build_runnable_config(thread_id=thread_id)
+    context = AgentServiceProvider(db_session=db)
+    config = {"configurable": {"thread_id": thread_id, "context": context}}
     run_id = str(uuid.uuid4())
 
     stream_modes = (
@@ -60,7 +67,6 @@ async def stream_run(thread_id: str, body: RunInput, request: Request):
         try:
             # When stream_mode is a list, astream yields tuples
             input_data = body.input or {}
-            input_data.setdefault("phase", DEFAULT_PHASE)
 
             async for chunk in graph.astream(
                 input_data,

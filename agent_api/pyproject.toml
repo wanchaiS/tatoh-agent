@@ -13,6 +13,7 @@ dependencies = [
     "langchain>=0.3.0",
     "langchain-openai>=0.2.0",
     "python-dotenv>=1.0.1",
+    "pydantic-settings>=2.0.0",
     "typing-extensions>=4.12.0",
     "holidays>=0.88",
     "google-api-python-client>=2.155.0",
@@ -38,13 +39,14 @@ requires = ["setuptools>=73.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["langgraph.templates.agent", "agent", "utils", "api", "db"]
+packages = ["langgraph.templates.agent", "agent", "utils", "api", "db", "core"]
 [tool.setuptools.package-dir]
 "langgraph.templates.agent" = "agent"
 "agent" = "agent"
 "utils" = "agent/utils"
 "api" = "api"
 "db" = "db"
+"core" = "core"
 
 
 [tool.setuptools.package-data]

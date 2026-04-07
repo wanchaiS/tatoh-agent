@@ -1,8 +1,8 @@
 import { useState } from "react"
 
 export interface DateRange {
-  start_date: string
-  end_date: string
+  start: string
+  end: string
 }
 
 export interface RoomAvailability {
@@ -32,7 +32,7 @@ export interface RoomData {
   room_newness: number
   tags: string[]
   thumbnail_url?: string
-  availability?: RoomAvailability
+  date_ranges?: DateRange[]
 }
 
 export function RoomCard({

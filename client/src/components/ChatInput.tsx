@@ -31,7 +31,7 @@ export function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Ask about rooms, views, availability..."
+          placeholder="Ask away..."
           className="flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
           disabled={isLoading}
         />

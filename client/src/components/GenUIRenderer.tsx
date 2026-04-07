@@ -6,11 +6,7 @@ import { SearchResultsList } from "./gen-ui-compopnents/SearchResultsList"
 import { SuggestedAnswers } from "./gen-ui-compopnents/SuggestedAnswers"
 
 type GenUIMessage =
-  | { type: "ui"; id: string; name: "rooms_list";        props: { loading?: boolean; rooms: RoomData[] }, metadata: {} }
-  | { type: "ui"; id: string; name: "room_detail";       props: { loading?: boolean; room: RoomData | null } }
-  | { type: "ui"; id: string; name: "suggested_answers"; props: { options: string[] } }
-  | { type: "ui"; id: string; name: "search_window";     props: { rooms: RoomData[]; label?: string; criteria_id?: string } }
-  | { type: "ui"; id: string; name: "search_results";    props: { rooms: RoomData[] } }
+   { type: "ui"; id: string; name: "search_results";  props: { rooms: RoomData[] } }
 
 
 interface GenUIRendererProps {

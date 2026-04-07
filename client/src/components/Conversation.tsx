@@ -3,6 +3,7 @@ import { Fragment, useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { GenUIRenderer, type GenUIMessage } from "./GenUIRenderer";
+import type { BaseMessage } from "@langchain/core/messages";
 
 function TypingIndicator() {
   return (
@@ -21,7 +22,7 @@ function TypingIndicator() {
 }
 
 interface ConversationProps {
-  messages: any[];
+  messages: BaseMessage[];
   uiMessages: (GenUIMessage & { message?: { id?: string } })[];
   isLoading: boolean;
   onSubmitFromUI: (text: string) => void;
@@ -56,10 +57,10 @@ export function Conversation({
       <div className="mx-auto max-w-3xl space-y-4 px-4 py-8">
         {messages
           .filter(
-            (msg: any) =>
+            (msg: BaseMessage) =>
               msg.type === "human" || (msg.type === "ai" && msg.content)
           )
-          .map((message: any) => (
+          .map((message: BaseMessage) => (
             <Fragment key={message.id}>
               <div
                 className={`flex animate-in fade-in duration-300 ${message.type === "human" ? "justify-end" : "justify-start"}`}
@@ -72,7 +73,7 @@ export function Conversation({
               </div>
               {uiMessages
                 .filter((ui) => ui.metadata?.message_id === message.id)
-                .map((ui: any) => (
+                .map((ui: GenUIMessage) => (
                   <GenUIRenderer
                     key={ui.id}
                     message={ui}
