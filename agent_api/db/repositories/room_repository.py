@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Sequence
 
 from db.models import Room as RoomModel
 
@@ -11,7 +12,7 @@ class RoomRepository:
 
     async def get_all(self) -> list[RoomModel]:
         result = await self.db.execute(select(RoomModel).order_by(RoomModel.id))
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get_by_id(self, id: int) -> RoomModel | None:
         result = await self.db.execute(select(RoomModel).where(RoomModel.id == id))

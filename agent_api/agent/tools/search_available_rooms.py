@@ -1,5 +1,6 @@
+from langchain_core.tools import InjectedToolArg
 from datetime import datetime, timedelta
-from typing import List, Optional, TypeAlias
+from typing import List, Optional, TypeAlias, Annotated
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.runnables import RunnableConfig
@@ -13,18 +14,18 @@ from db.models import Room
 
 EXPANSION_STEPS = [0, 3, 5, 7]
 
-RoomAvailabilityResult: TypeAlias = dict[str, list[str]]
+RoomAvailabilityResult: TypeAlias = dict[str, set[str]]
 
 @tool
 async def search_available_rooms(
+    runtime: Annotated[ToolRuntime, InjectedToolArg],
+    config: Annotated[RunnableConfig, InjectedToolArg],
     start_date: str,
     end_date: str,
     duration_nights: int,
     guest_no: Optional[int] = None,
     requested_rooms: Optional[List[str]] = None,
     requested_room_types: Optional[List[str]] = None,
-    runtime: ToolRuntime = None,
-    config: RunnableConfig = None,
 ):
     """
     Search for available rooms based on the given criteria.
@@ -40,7 +41,7 @@ async def search_available_rooms(
     # Prepare services
     room_availability_svc = get_agent_service_provider(config).room_availability
 
-    internal_room_dict = runtime.state["rooms"]    
+    internal_room_dict = runtime.state["rooms"]
 
     # Perferm validation on start date, end date
     _validate_dates(start_date, end_date)
@@ -49,10 +50,10 @@ async def search_available_rooms(
         raise ToolValidationError("duration_nights is required to perform room searches. Ask user to provide duration_nights.")
 
     # Validate requested rooms (exact match)
-    await _validate_room_names(requested_rooms,internal_room_dict)
+    await _validate_room_names(internal_room_dict,requested_rooms,)
 
     # Validate requested room types (exact match)
-    await _validate_room_types(requested_room_types,internal_room_dict)
+    await _validate_room_types(internal_room_dict,requested_room_types)
 
     ### Searching process ###
     # Perform search to find all rooms on those dates
@@ -166,7 +167,7 @@ def _validate_dates(start_date: str, end_date: str):
     if start_dt < datetime.now().replace(hour=0, minute=0, second=0, microsecond=0):
         raise ToolValidationError(f"start_date is in the past.")
 
-async def _validate_room_names(room_names: list[str], internal_room_dict: dict[str, Room]):
+async def _validate_room_names(internal_room_dict: dict[str, Room], room_names: Optional[list[str]] = None):
     if not room_names:
         return None
 
@@ -181,7 +182,7 @@ async def _validate_room_names(room_names: list[str], internal_room_dict: dict[s
         raise ToolValidationError(f"Room(s) {', '.join(invalid_names)} not found. Available rooms: {valid}")
         
     
-async def _validate_room_types(room_types: list[str], internal_room_dict: dict[str, Room]):
+async def _validate_room_types( internal_room_dict: dict[str, Room],room_types: Optional[list[str]] = None):
     if not room_types:
         return None
 
@@ -243,7 +244,7 @@ def _filter_by_requested_rooms_or_types(
     return result
 
 
-def _has_enough_consecutive_dates(dates: list[str], duration: int) -> bool:
+def _has_enough_consecutive_dates(dates: set[str], duration: int) -> bool:
     """Check if there are at least `duration` consecutive dates."""
     if len(dates) < duration:
         return False

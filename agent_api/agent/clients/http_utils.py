@@ -49,7 +49,7 @@ def retry_with_jitter(
                         f"Attempt {attempt + 1} failed: {e}. Retrying in {sleep_time:.2f}s..."
                     )
                     await asyncio.sleep(sleep_time)
-
+            assert last_exception is not None
             raise last_exception
 
         return wrapper

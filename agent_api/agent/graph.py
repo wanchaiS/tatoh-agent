@@ -1,6 +1,5 @@
 from agent.tools.exceptions import ToolValidationError
 from langgraph.graph import StateGraph
-from typing_extensions import TypedDict, Annotated, Literal
 from langgraph.graph.message import add_messages
 from langchain_core.messages import AnyMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -10,13 +9,15 @@ from datetime import datetime,date, timedelta
 from langchain_core.runnables import RunnableConfig
 from dataclasses import dataclass
 from langgraph.graph.ui import push_ui_message, AnyUIMessage, ui_message_reducer
-from typing import NamedTuple, Sequence
+from typing import Sequence, Annotated, Literal, Dict, TypedDict
 import uuid
+
 
 from agent.tools.exceptions import ToolValidationError
 from agent.context.agent_service_provider import get_agent_service_provider
 from agent.tools.search_available_rooms import RoomAvailabilityResult, search_available_rooms
 from db.models import Room
+                                                                                                                                                                                                                                                                                     
 
 def append_search_results(
     existing: list[RoomAvailabilityResult] | None, 
@@ -36,30 +37,31 @@ def append_search_results(
 
     return existing + new
 
-class RoomCard(NamedTuple):
+class RoomCard(TypedDict):
     room_name: str
     room_type: str
     summary: str
     bed_queen: int
     bed_single: int
     baths: int
-    size: int
-    price_weekdays: int
-    price_weekends_holidays: int
-    price_ny_songkran: int
+    size: float
+    price_weekdays: float
+    price_weekends_holidays: float
+    price_ny_songkran: float
     max_guests: int
     steps_to_beach: int
-    sea_view: bool
-    privacy: str
+    sea_view: int
+    privacy: int
     steps_to_restaurant: int
-    room_design: str
-    room_newness: str
+    room_design: int
+    room_newness: int
     tags: list[str]
+    thumbnail_url: str
     date_ranges: list[dict[str, str]]
 
 @dataclass
 class InternalRoom:
-    id: str
+    id: int
     room_name: str
     room_type: str
     summary: str
@@ -84,7 +86,7 @@ class State(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     pending_render_search_results: Annotated[list[RoomAvailabilityResult], append_search_results]
     ui: Annotated[Sequence[AnyUIMessage], ui_message_reducer]
-    rooms: dict[str, InternalRoom]
+    rooms: Dict[str, InternalRoom]
 
 
 def tool_error_handler(error: Exception) -> str:
@@ -172,7 +174,7 @@ def get_prompt(state: State) -> str:
     )
 
 
-async def agent_node(state: State) -> State:
+async def agent_node(state: State) -> dict:
     """
         main agent node
     """
@@ -283,12 +285,12 @@ async def context_node(state: State,config: RunnableConfig):
             steps_to_restaurant=room.steps_to_restaurant,
             room_design=room.room_design,
             room_newness=room.room_newness,
-            tags=room.tags,
-            thumbnail_url=thumbnail_urls.get(room.id),
+            tags=room.tags.split(",") if room.tags else [],
+            thumbnail_url=thumbnail_urls.get(room.id) or "",
         )
     return {"rooms": internal_room_dict}
 
-graph = StateGraph(State)
+graph = StateGraph(State)  # pyrefly: ignore[bad-specialization]
 graph.add_node("context", context_node)
 graph.add_node("agent", agent_node)
 graph.add_node("tools", tool_node)

@@ -15,7 +15,7 @@ class BoatScheduleRepository:
                 func.lower(BoatSchedule.destination) == destination.lower(),
             ).order_by(BoatSchedule.departure)
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get_distinct_locations(self) -> list[str]:
         origins = await self.db.execute(
@@ -39,7 +39,7 @@ class BusScheduleRepository:
                 func.lower(BusSchedule.destination) == destination.lower(),
             ).order_by(BusSchedule.departure)
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get_distinct_locations(self) -> list[str]:
         origins = await self.db.execute(

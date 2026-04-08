@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Request
@@ -10,12 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.dependencies import get_db
 from agent.context.agent_service_provider import AgentServiceProvider
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 class RunInput(BaseModel):
     input: dict | None = None
-    stream_mode: list[str] | str = "values"
-    stream_subgraphs: bool = False
+    stream_mode: list[str] | str = ["values", "messages-tuple", "custom"]
     assistant_id: str = "agent"
 
 
@@ -36,6 +38,22 @@ def _sse_event(event: str, data: object) -> str:
     """Format a Server-Sent Event."""
     return f"event: {event}\ndata: {json.dumps(_serialize(data), default=str)}\n\n"
 
+
+def _get_msg_type(msg) -> str:
+    if isinstance(msg, BaseMessage):
+        return msg.type
+    if isinstance(msg, dict):
+        return msg.get("type", "")
+    return ""
+
+
+def _has_tool_calls(msg) -> bool:
+    if isinstance(msg, BaseMessage):
+        return bool(getattr(msg, "tool_calls", None))
+    if isinstance(msg, dict):
+        return bool(msg.get("tool_calls"))
+    return False
+
 @router.post("/threads/{thread_id}/runs/stream")
 async def stream_run(
     thread_id: str, 
@@ -50,50 +68,42 @@ async def stream_run(
     config = {"configurable": {"thread_id": thread_id, "context": context}}
     run_id = str(uuid.uuid4())
 
-    stream_modes = (
-        body.stream_mode if isinstance(body.stream_mode, list) else [body.stream_mode]
-    )
-
-    # Map SDK stream mode names to LangGraph Python equivalents
-    MODE_MAP = {"messages-tuple": "messages"}
-    lg_stream_modes = list(dict.fromkeys(
-        MODE_MAP.get(m, m) for m in stream_modes
-    ))
-
     async def event_generator():
-        # First event is always metadata
         yield _sse_event("metadata", {"run_id": run_id})
 
         try:
-            # When stream_mode is a list, astream yields tuples
-            input_data = body.input or {}
-
             async for chunk in graph.astream(
-                input_data,
+                body.input or {},
                 config,
-                stream_mode=lg_stream_modes,
-                subgraphs=body.stream_subgraphs,
+                stream_mode=["messages", "values", "custom"],
+                version="v2",
             ):
-                if isinstance(chunk, tuple):
-                    if len(chunk) == 3:
-                        namespace, mode, data = chunk
-                    elif len(chunk) == 2:
-                        mode, data = chunk
-                    else:
-                        mode = lg_stream_modes[0]
-                        data = chunk
-                else:
-                    # Single stream mode — event type is the mode itself
-                    mode = lg_stream_modes[0]
-                    data = chunk
+                event_type = chunk["type"]
+                data = chunk["data"]
 
-                # Use LangGraph Python mode names directly as SSE event types.
-                # The SDK expects "messages" and "values", not "messages-tuple".
-                yield _sse_event(mode, data)
+                if event_type == "messages":
+                    msg_chunk, metadata = data
+                    # Only stream text content from the agent node
+                    if not msg_chunk.content or metadata.get("langgraph_node") != "agent":
+                        continue
+
+                elif event_type == "values":
+                    # Only send human + final ai messages (no tool-call ai) and ui
+                    filtered_messages = [
+                        m for m in data.get("messages", [])
+                        if _get_msg_type(m) == "human"
+                        or (_get_msg_type(m) == "ai" and not _has_tool_calls(m))
+                    ]
+                    data = {
+                        "messages": filtered_messages,
+                        "ui": data.get("ui", []),
+                    }
+
+                yield _sse_event(event_type, data)
         except Exception as e:
+            logger.exception(f"Stream failed for thread {thread_id}")
             yield _sse_event("error", {"message": str(e)})
 
-        # Final event
         yield _sse_event("end", None)
 
     return StreamingResponse(

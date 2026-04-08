@@ -1,5 +1,9 @@
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, Time
+import datetime
+from typing import Optional
+
+from sqlalchemy import ForeignKey, String, Text, Time
 from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.orm import Mapped, mapped_column
 
 from db.database import Base
 
@@ -11,72 +15,72 @@ class Room(Base):
     __tablename__ = "rooms"
     __table_args__ = {"schema": SCHEMA}
 
-    id = Column(Integer, primary_key=True)
-    room_name = Column(String(10), unique=True, nullable=False)
-    room_type = Column(String(50), nullable=False)
-    summary = Column(Text, nullable=False)
-    bed_queen = Column(Integer, nullable=False)
-    bed_single = Column(Integer, nullable=False)
-    baths = Column(Integer, nullable=False)
-    size = Column(Float, nullable=False)
-    price_weekdays = Column(Float, nullable=False)
-    price_weekends_holidays = Column(Float, nullable=False)
-    price_ny_songkran = Column(Float, nullable=False)
-    max_guests = Column(Integer, nullable=False)
-    steps_to_beach = Column(Integer, nullable=False)
-    sea_view = Column(Integer, nullable=False)
-    privacy = Column(Integer, nullable=False)
-    steps_to_restaurant = Column(Integer, nullable=False)
-    room_design = Column(Integer, nullable=False)
-    room_newness = Column(Integer, nullable=False)
-    tags = Column(Text, nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    room_name: Mapped[str] = mapped_column(String(10), unique=True)
+    room_type: Mapped[str] = mapped_column(String(50))
+    summary: Mapped[str] = mapped_column(Text)
+    bed_queen: Mapped[int]
+    bed_single: Mapped[int]
+    baths: Mapped[int]
+    size: Mapped[float]
+    price_weekdays: Mapped[float]
+    price_weekends_holidays: Mapped[float]
+    price_ny_songkran: Mapped[float]
+    max_guests: Mapped[int]
+    steps_to_beach: Mapped[int]
+    sea_view: Mapped[int]
+    privacy: Mapped[int]
+    steps_to_restaurant: Mapped[int]
+    room_design: Mapped[int]
+    room_newness: Mapped[int]
+    tags: Mapped[Optional[str]] = mapped_column(Text, default=None)
 
 
 class RoomPhoto(Base):
     __tablename__ = "room_photos"
     __table_args__ = {"schema": SCHEMA}
 
-    id = Column(Integer, primary_key=True)
-    room_id = Column(Integer, ForeignKey(f"{SCHEMA}.rooms.id", ondelete="CASCADE"), nullable=False)
-    filename = Column(String(255), nullable=False)
-    sort_order = Column(Integer, nullable=False, default=0)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    room_id: Mapped[int] = mapped_column(ForeignKey(f"{SCHEMA}.rooms.id", ondelete="CASCADE"))
+    filename: Mapped[str] = mapped_column(String(255))
+    sort_order: Mapped[int] = mapped_column(default=0)
 
 
 class BoatSchedule(Base):
     __tablename__ = "boat_schedules"
     __table_args__ = {"schema": SCHEMA}
 
-    id = Column(Integer, primary_key=True)
-    origin = Column(String(100), nullable=False)
-    destination = Column(String(100), nullable=False)
-    departure = Column(Time, nullable=False)
-    arrival = Column(Time, nullable=False)
-    type = Column(String(50), nullable=False)
-    price = Column(Integer, nullable=False)
-    infant_price = Column(Integer, nullable=False)
-    young_children_price = Column(Integer, nullable=False)
-    is_vip = Column(Boolean, nullable=False)
-    is_direct = Column(Boolean, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    origin: Mapped[str] = mapped_column(String(100))
+    destination: Mapped[str] = mapped_column(String(100))
+    departure: Mapped[datetime.time] = mapped_column(Time)
+    arrival: Mapped[datetime.time] = mapped_column(Time)
+    type: Mapped[str] = mapped_column(String(50))
+    price: Mapped[int]
+    infant_price: Mapped[int]
+    young_children_price: Mapped[int]
+    is_vip: Mapped[bool]
+    is_direct: Mapped[bool]
 
 
 class BusSchedule(Base):
     __tablename__ = "bus_schedules"
     __table_args__ = {"schema": SCHEMA}
 
-    id = Column(Integer, primary_key=True)
-    origin = Column(String(100), nullable=False)
-    destination = Column(String(100), nullable=False)
-    departure = Column(Time, nullable=False)
-    arrival = Column(Time, nullable=False)
-    price = Column(Integer, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    origin: Mapped[str] = mapped_column(String(100))
+    destination: Mapped[str] = mapped_column(String(100))
+    departure: Mapped[datetime.time] = mapped_column(Time)
+    arrival: Mapped[datetime.time] = mapped_column(Time)
+    price: Mapped[int]
 
 
 class KnowledgeDocument(Base):
     __tablename__ = "knowledge_documents"
     __table_args__ = {"schema": SCHEMA}
 
-    id = Column(Integer, primary_key=True)
-    key = Column(String(100), unique=True, nullable=False)
-    title = Column(String(200), nullable=False)
-    content = Column(Text, nullable=False)
-    image_urls = Column(ARRAY(Text), nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(100), unique=True)
+    title: Mapped[str] = mapped_column(String(200))
+    content: Mapped[str] = mapped_column(Text)
+    image_urls: Mapped[Optional[list[str]]] = mapped_column(ARRAY(Text), default=None)

@@ -3,8 +3,7 @@ import logging
 import httpx
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict
-from typing_extensions import NotRequired, TypedDict
+from typing import Any, Dict,NotRequired, TypedDict
 
 from core.config import settings
 from .http_utils import make_request
@@ -157,7 +156,10 @@ class PmsClient:
                     room for room in room_list if room["roomTypeId"] == room_type["id"]
                 ]
                 for room in rooms:
-                    room_no = room_id_to_number.get(room["id"]).lower()
+                    room_number = room_id_to_number.get(room["id"])
+                    if room_number is None:
+                        continue
+                    room_no = room_number.lower()
                     rooms_availability[room_no] = {
                         "room_id": room["id"],
                         "room_no": room_no,

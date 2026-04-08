@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from langchain_core.runnables import RunnableConfig
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,24 +10,17 @@ from db.database import AsyncSessionLocal
 @dataclass
 class AgentServiceProvider:
     """The central dependency injection container for all LangGraph tools."""
-    
+
     # ── Singletons ──
-    pms: PmsClient = pms_client 
-    
+    pms: PmsClient = pms_client
+
     # ── Scoped Services ──
-    room_availability: RoomAvailabilityService | None = None
-    db_session: AsyncSession | None = None
-    room_service: RoomService | None = None
+    db_session: AsyncSession = field(default_factory=AsyncSessionLocal)
+    room_availability: RoomAvailabilityService = field(default_factory=RoomAvailabilityService)
+    room_service: RoomService = field(init=False)
 
     def __post_init__(self) -> None:
-        if self.db_session is None:
-            self.db_session = AsyncSessionLocal()
-        
-        if self.room_availability is None:
-            self.room_availability = RoomAvailabilityService()
-            
-        if self.room_service is None:
-            self.room_service = RoomService(db=self.db_session)
+        self.room_service = RoomService(db=self.db_session)
     
 
 def get_agent_service_provider(config: RunnableConfig) -> AgentServiceProvider:

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Dict, List, Set, Tuple
-from typing_extensions import TypedDict
+from typing import Dict, List, Set, Tuple,TypedDict
 
 from agent.clients.pms_client import pms_client
 
@@ -93,7 +92,7 @@ class RoomAvailabilityService:
                 "room_no": room_info["room_no"],
                 "room_type_id": room_info["room_type_id"],
                 "room_type_name": room_info["room_type_name"],
-                "dates": sorted(list(filtered_dates)),
+                "dates": set(filtered_dates),
             }
 
         return result_rooms

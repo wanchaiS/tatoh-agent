@@ -20,6 +20,9 @@ export function MainConversationPage() {
     },
   });
 
+  console.log("values", values)
+  // console.log("messages main", messages)
+
   const uiMessages = (values?.ui ?? []) as (GenUIMessage & {
     message?: { id?: string };
   })[];
@@ -27,12 +30,7 @@ export function MainConversationPage() {
   const handleSubmit = useCallback(
     (text: string) => {
       if (!text.trim() || isLoading) return;
-      submit(
-        { messages: [{ type: "human", content: text }] },
-        {
-          streamMode: ["values", "messages"],
-        }
-      );
+      submit({ messages: [{ type: "human", content: text }] });
     },
     [isLoading, submit]
   );
