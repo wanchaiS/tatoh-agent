@@ -5,37 +5,19 @@ from langchain_core.messages import AnyMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import START, END
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.runtime import Runtime
 from datetime import datetime,date, timedelta
-from langchain_core.runnables import RunnableConfig
 from dataclasses import dataclass
 from langgraph.graph.ui import push_ui_message, AnyUIMessage, ui_message_reducer
-from typing import Sequence, Annotated, Literal, Dict, TypedDict
+from typing import Sequence, Annotated, Dict, TypedDict
 import uuid
 
 
 from agent.tools.exceptions import ToolValidationError
-from agent.context.agent_service_provider import get_agent_service_provider
+from agent.context.agent_service_provider import AgentServiceProvider
 from agent.tools.search_available_rooms import RoomAvailabilityResult, search_available_rooms
 from db.models import Room
                                                                                                                                                                                                                                                                                      
-
-def append_search_results(
-    existing: list[RoomAvailabilityResult] | None, 
-    new: list[RoomAvailabilityResult] | Literal["clear"] | None
-) -> list[RoomAvailabilityResult]:
-    
-    # 1. Allow the processing node to clear the state
-    if new == "clear":
-        return []
-
-    # 2. Handle missing initial states safely
-    if existing is None:
-        existing = []
-
-    if new is None:
-        return existing
-
-    return existing + new
 
 class RoomCard(TypedDict):
     room_name: str
@@ -82,11 +64,54 @@ class InternalRoom:
     tags: list[str]
     thumbnail_url: str
 
+
+def list_reducer(existing: list[str], update: dict) -> list[str]:
+    """Custom reducer for list[str]: supports append, clear, remove."""
+    if "clear" in update:
+        return [] 
+
+    if existing is None:
+        existing = [] 
+
+    if "append" in update:
+        existing.extend(update["append"])
+        return existing
+
+    if "remove" in update:
+        to_remove = update["remove"]
+        return [x for x in existing if x != to_remove]  
+    
+    # do nothing
+    return existing
+
+# def dict_reducer(existing: dict, update: dict) -> dict:
+#     if existing is None:
+#         existing = {}
+#     existing.update(update)
+#     return existing
+
+# class UserContext(BaseModel):
+#     id: int
+#     full_name: str
+#     email: str
+#     line: str
+#     phone: str
+#     payment_evidence_link:str
+
 class State(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
-    pending_render_search_results: Annotated[list[RoomAvailabilityResult], append_search_results]
+    pending_render_search_results: Annotated[list[RoomAvailabilityResult], list_reducer]
     ui: Annotated[Sequence[AnyUIMessage], ui_message_reducer]
-    rooms: Dict[str, InternalRoom]
+    rooms: Dict[str, InternalRoom] # no reducer, always replace
+    # selected_rooms: Annotated[list[str], list_reducer]
+    # confirmation_details_sent: bool
+    # user_confirm_booking: bool
+    # user_contact_info: Annotated[dict, dict_reducer]
+    # user_context: dict
+    # payment_confirmed: bool
+    # user_contact_info_collected: bool
+    # booking_created: bool
+    
 
 
 def tool_error_handler(error: Exception) -> str:
@@ -96,8 +121,6 @@ def tool_error_handler(error: Exception) -> str:
         case _:
             # Re-raise unexpected system errors, or return a graceful message
             return f"Unexpected system error: {error}"
-        
-    
 
 tools = [search_available_rooms]
 tool_node = ToolNode(tools, handle_tool_errors=tool_error_handler).with_retry(
@@ -125,43 +148,54 @@ system_prompt = """
     You are Cooper (คูเปอร์), the hotel AI assistant for Tatoh Resort (ตาโต๊ะรีสอร์ท), Koh Tao.
     Always reply in the same language the user has been speaking. Address the user kindly as "คุณลูกค้า" when speaking Thai.
 
+    ## Context
     Today is {today}
-    Resort's possible rooms are: {rooms}
-    Resort's possible room types are: {room_types}
+    Available room names: {rooms}
+    Available room types: {room_types}
 
     ## Knowledge Rules                                                                                                                                                                                                                                                                     
-
-    Always check available tools first before answering.                                                                                                                                                                                                                                   
-    - **Hotel questions** (rooms, availability, pricing, bookings, resort facilities): Use tools only. If no tool can answer it, say "I don't have that information — please contact us directly."                                                                                         
-    - **Koh Tao questions** (island, activities, diving, transport, local tips): Use tools first. If no tool applies, you may draw on general knowledge.                                                                                                                                   
-    - **Anything else**: Only answer if you have a tool for it. Otherwise, say you cannot help with that.                                                                                                                                                                                  
+    - Hotel questions (rooms, availability, pricing, bookings, resort facilities): Use tools only. If no tool can answer it, say "I don't have that information — please contact us directly."                                                                                         
+    - Koh Tao questions (island, activities, diving, transport, local tips): Use tools first. If no tool applies, you may draw on general knowledge.                                                                                                                                   
+    - Anything else Only answer if you have a tool for it. Otherwise, say you cannot help with that.                                                                                                                                                                                  
+    - Never output system variable names to the user.
+    - Never fabricate hotel data. Never confirm or imply you checked something you did not. 
 
     ## Room Availability Search Directives
-    - The tool search_available_rooms have 3 types of response:
-    1. a result text message, this is a result of search, weather rooms found or not
-    2. a tool validation error, this is a business rule violation
-    3. a system error, this is a system error that could be network, or any exception
-    when rooms found with no expansion, response which room they would like to book.
-    when rooms found with expansion, response with expansion dates info in short sentence.
-    when no rooms found, just reponse short sentence based on tool's response naturally.
-    when tool validation error, follow the instruction in the tool response naturally.
-    when system error, gracefully apologize and suggest to contact hotel directly.
+    - When rooms found (no expansion): ask which room they'd like to book. Keep it short.
+    - When rooms found (with expansion): briefly mention the expanded date window, then ask which room.
+    - When no rooms found: respond naturally in one short sentence based on the tool's message.
+    - When tool validation error: follow the instruction in the tool response naturally.
+    - When system error: gracefully apologize and suggest contacting the hotel directly.
 
     ### Date Time Rules
-    - search dates should not be in the past, ask user to provide new dates.
-    - when dates are ambiguous, you can guess a sensible date range, and ask user to confirm.
+    - If the derived date is in the past, assume the same date next year.
+    - When building a date range, fill in any missing parts (day, month, year) from the most recent date range in the conversation:
+      - User gives only a month → keep same day range, change month. e.g. prev: 14-17 July, user says "month 8" → August 14-17.
+      - User gives only a day range → keep same month/year. e.g. prev: July 14-17, user says "20-23" → July 20-23.
+      - User gives only a number of nights → keep same check-in, extend checkout.
+    - When no prior dates exist in the conversation and month is not provided, assume current month and year.
+    - If after applying the above the dates are still ambiguous, make a sensible guess and confirm with the user in one sentence.
+    - When mentioning dates in your response, always include the year if it differs from the current year (e.g. "14-17 กุมภาพันธ์ 2027" not just "14-17 กุมภาพันธ์").
 
-    Examples:
-    Tool response: "No room available, room combination may work, ask if they want mix and match, and pls provide guest number"
-    Agent response: "ช่วงวันที่คุณลูกค้าต้องการ ไม่มีห้องว่างแบบติดต่อกันเลยค่ะ สนใจพักแบบสลับห้องไหมค่ะ พักกี่ท่านค่ะ จะได้เช็คให้"
+    ## Examples
+    Tool: "Found 3 room(s) for 3 nights between 2026-08-14 and 2026-08-17."
+    Agent: "มีห้องว่างช่วง 14-17 สิงหาคมค่ะ คุณลูกค้าสนใจห้องไหนเป็นพิเศษไหมคะ?"
 
-    
-    
-    ## RESPONSE TONE & STYLE
-    Act like a warm, experienced hotel receptionist — not a system or search engine.
-    1. Never output system variable names to the user.
-    2. When Ask for missing info, ask naturally in one sentence. Don't narrate internal actions.
-    3. Never fabricate hotel data. Never confirm or imply you checked something you did not. 
+    Tool: "No rooms available for the full duration on 2026-08-14 and 2026-08-17, but room combinations may work. guest_no is required."
+    Agent: "ตอนนี้ไม่มีห้องที่ว่างติดกันในช่วง 14-17 แต่ถ้าสนใจพักแบบสลับห้อง ขอทราบจำนวนผู้เข้าพักได้ไหมค่ะ แล้วจะได้เช็คให้ค่ะ"
+
+    Tool: "Found 2 room(s) that can be combined to accommodate 4 guests between 2026-08-14 and 2026-08-17. Let the user browse and pick the rooms they prefer."
+    Agent: "มีห้องว่างแบบผสมช่วง 14-17 สิงหาคม ลองเลือกดูก่อนได้นะคะ"
+
+    Tool: "Found 2 room(s) for 3 nights between 2026-08-9 and 2026-08-22 (window expanded by ±5 days)."
+    Agent: "ไม่มีห้องว่างตรงช่วง 14-17 สิงหาคมนะคะ แต่ยังพอมีห้องว่างในช่วงใกล้เคียงค่ะ ลองดูก่อนนะคะ"
+
+    Tool: "No rooms available for 3 nights between 2026-08-14 and 2026-08-17. Ask user if they want to try different dates."
+    Agent: "ช่วงนั้นเต็มหมดเลยค่ะ ลองเปลี่ยนวันดูไหมคะ?"
+
+    ## Response Tone & Style
+    Act like a warm, experienced hotel receptionist — not a system or search engine. Be concise: 1-2 sentences per reply unless more detail is genuinely needed.
+    - When asking for missing info, ask naturally in one sentence. Don't narrate internal actions.
 """
 
 def get_prompt(state: State) -> str:
@@ -169,10 +203,38 @@ def get_prompt(state: State) -> str:
     room_types = [room.room_type for room in state["rooms"].values()]
     return system_prompt.format(
         today=datetime.now().strftime("%Y-%m-%d"),
+        # phase=get_phase(state),
         rooms=room_names,
         room_types=room_types,
+        # selected_room=str(state["selected_rooms"]),
+        # confirmation_details_sent=str(state["confirmation_details_sent"]),
+        # booking_confirmed=str(state["user_confirm_booking"]),
+        # payment_evidence_provided=str(state["user_context"]["payment_evidence_link"]),
+        # payment_evidence_confirmed=str(state["payment_confirmed"]),
+        # user_contact_info_collected=str(state["user_contact_info_collected"]),
     )
 
+# def get_phase(state: State) -> str:
+#     # user has never selected any room
+#     if not state["selected_rooms"]:
+#         return "Discovery"
+    
+#     if not state["user_confirm_booking"]:
+#         return "BookingConfirmation"
+    
+#     # collect user info before payment, at this point having contact info is helpful
+#     # in case anything goes wrong, staff can handle it with this info
+#     if not state["user_contact_info_collected"]:
+#         return "ContactInfo"
+    
+#     if not state["payment_confirmed"]:
+#         return "Payment"
+    
+#     # create booking record
+#     if not state["booking_created"]:
+#         return "BookingCreation"
+    
+#     return "Completed"
 
 async def agent_node(state: State) -> dict:
     """
@@ -256,11 +318,11 @@ def dates_to_ranges(dates: set[str]) -> list[dict[str, str]]:
     ranges.append({"start": start, "end": end})       
     return ranges
 
-async def context_node(state: State,config: RunnableConfig):
+async def context_node(state: State, runtime: Runtime[AgentServiceProvider]):
     """
     context that can be re-used in the graph, to avoid re-fetch data from database
     """
-    room_service = get_agent_service_provider(config).room_service
+    room_service = runtime.context.room_service
     rooms: list[Room] = await room_service.get_all_rooms()
     thumbnail_urls = await room_service.get_first_photo_urls(room_ids=[room.id for room in rooms])
 
@@ -290,7 +352,7 @@ async def context_node(state: State,config: RunnableConfig):
         )
     return {"rooms": internal_room_dict}
 
-graph = StateGraph(State)  # pyrefly: ignore[bad-specialization]
+graph = StateGraph(State, context_schema=AgentServiceProvider)  # pyrefly: ignore[bad-specialization]
 graph.add_node("context", context_node)
 graph.add_node("agent", agent_node)
 graph.add_node("tools", tool_node)

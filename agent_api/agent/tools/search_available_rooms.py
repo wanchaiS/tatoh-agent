@@ -1,14 +1,13 @@
-from langchain_core.tools import InjectedToolArg
+from langchain_core.tools import tool
 from datetime import datetime, timedelta
-from typing import List, Optional, TypeAlias, Annotated
+from typing import List, Optional, TypeAlias
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
-from langchain_core.runnables import RunnableConfig
-from langchain_core.tools import tool
 from langgraph.types import Command
 
-from agent.context.agent_service_provider import get_agent_service_provider
+from agent.context.agent_service_provider import AgentServiceProvider
 from agent.services.room_availability_service import RoomAvailabilityService
+from agent.tools.common_validators import validate_dates, validate_room_names
 from agent.tools.exceptions import ToolValidationError
 from db.models import Room
 
@@ -18,8 +17,7 @@ RoomAvailabilityResult: TypeAlias = dict[str, set[str]]
 
 @tool
 async def search_available_rooms(
-    runtime: Annotated[ToolRuntime, InjectedToolArg],
-    config: Annotated[RunnableConfig, InjectedToolArg],
+    runtime: ToolRuntime[AgentServiceProvider],
     start_date: str,
     end_date: str,
     duration_nights: int,
@@ -39,21 +37,18 @@ async def search_available_rooms(
         requested_room_types: List of room types requested by the user. Optional.
     """
     # Prepare services
-    room_availability_svc = get_agent_service_provider(config).room_availability
+    room_availability_svc = runtime.context.room_availability
 
     internal_room_dict = runtime.state["rooms"]
 
-    # Perferm validation on start date, end date
-    _validate_dates(start_date, end_date)
+    # Validate args
+    validate_dates(start_date, end_date)
 
     if duration_nights is None:
         raise ToolValidationError("duration_nights is required to perform room searches. Ask user to provide duration_nights.")
-
-    # Validate requested rooms (exact match)
-    await _validate_room_names(internal_room_dict,requested_rooms,)
-
-    # Validate requested room types (exact match)
-    await _validate_room_types(internal_room_dict,requested_room_types)
+   
+    validate_room_names(internal_room_dict,requested_rooms,)
+    _validate_room_types(internal_room_dict,requested_room_types)
 
     ### Searching process ###
     # Perform search to find all rooms on those dates
@@ -85,7 +80,7 @@ async def search_available_rooms(
                     content=f"Found {len(filtered)} room(s) {room_filter_desc} for {duration_nights} nights between {start_date} and {end_date}.",
                     tool_call_id=runtime.tool_call_id,
                 )],
-                "pending_render_search_results": [filtered],
+                "pending_render_search_results": {"append": [filtered]},
             })
 
     # Approach 2: No specific rooms required
@@ -117,18 +112,18 @@ async def search_available_rooms(
                             tool_call_id=runtime.tool_call_id,
                         )
                     ],
-                    "pending_render_search_results": [search_result],
+                    "pending_render_search_results": {"append": [search_result]},
                 }
             )
         # guest_no is required for combination check
         if guest_no is None:
-            return """No rooms available for the full duration on these dates,
+            return """No rooms available for the full duration on {start_date} and {end_date},
             but room combinations may work. guest_no is required to check. 
             Ask the user if they want to mix and match rooms, and pls provide the number of guests if they want mix and match"""
 
         # Step 2: No full-duration rooms — check if combinations can accommodate guest_no
         search_result_w_1_night = await _search_rooms(effective_start, effective_end, 1, internal_room_dict, room_availability_svc)
-        if _can_accommodate(list(search_result_w_1_night.keys()), internal_room_dict, guest_no):
+        if _can_accommodate(search_result_w_1_night, internal_room_dict, guest_no, effective_start, effective_end, duration_nights):
             return Command(
                 update={
                     "messages": [
@@ -137,7 +132,7 @@ async def search_available_rooms(
                             tool_call_id=runtime.tool_call_id,
                         )
                     ],
-                    "pending_render_search_results": [search_result_w_1_night],
+                    "pending_render_search_results": {"append": [search_result_w_1_night]},
                 }
             )
 
@@ -152,37 +147,7 @@ async def search_available_rooms(
 
 ######################## Validators ################################
 
-def _validate_dates(start_date: str, end_date: str):
-    if start_date is None or end_date is None:
-        raise ToolValidationError("start_date and end_date are required.")
-    
-    start_dt = _parse_date(start_date)
-    end_dt = _parse_date(end_date)
-    if not start_dt:
-        raise ToolValidationError(f"Invalid start_date format. Must be YYYY-MM-DD.")
-    if not end_dt:
-        raise ToolValidationError(f"Invalid end_date format. Must be YYYY-MM-DD.")
-    if end_dt <= start_dt:
-        raise ToolValidationError(f"end_date must be after start_date.")
-    if start_dt < datetime.now().replace(hour=0, minute=0, second=0, microsecond=0):
-        raise ToolValidationError(f"start_date is in the past.")
-
-async def _validate_room_names(internal_room_dict: dict[str, Room], room_names: Optional[list[str]] = None):
-    if not room_names:
-        return None
-
-    invalid_names = []
-    
-    for room in room_names:
-        if room.lower() not in internal_room_dict:
-            invalid_names.append(room)
-    
-    if invalid_names:
-        valid = ", ".join(internal_room_dict.keys())
-        raise ToolValidationError(f"Room(s) {', '.join(invalid_names)} not found. Available rooms: {valid}")
-        
-    
-async def _validate_room_types( internal_room_dict: dict[str, Room],room_types: Optional[list[str]] = None):
+def _validate_room_types( internal_room_dict: dict[str, Room],room_types: Optional[list[str]] = None):
     if not room_types:
         return None
 
@@ -216,14 +181,51 @@ def _parse_date(date_str: str) -> Optional[datetime]:
     except (ValueError, TypeError):
         return None
 
-def _can_accommodate(room_names: list[str], internal_room_dict: dict[str, Room], guest_no: int) -> bool:
-    """Check if the total capacity of all rooms (max_guests+1 each) can accommodate guest_no."""
-    total_capacity = 0
-    for name in room_names:
-        room = internal_room_dict.get(name.lower())
+def _can_accommodate(
+    rooms_with_dates: RoomAvailabilityResult,
+    internal_room_dict: dict[str, Room],
+    guest_no: int,
+    effective_start: str,
+    effective_end: str,
+    duration_nights: int,
+) -> bool:
+    """
+    Check if rooms can accommodate guest_no guests for duration_nights consecutive nights
+    with exactly one room switch (caller has already ruled out no-switch options).
+
+    For each possible duration_nights-length window within [effective_start, effective_end],
+    try every split point k:
+      - cap of rooms available every night in [0..k-1] >= guest_no (capacity = max_guests + 1)
+      - AND cap of rooms available every night in [k..n-1] >= guest_no
+    """
+    start_dt = _parse_date(effective_start)
+    end_dt = _parse_date(effective_end)
+    if not start_dt or not end_dt:
+        return False
+
+    room_info = []
+    for room_no, dates in rooms_with_dates.items():
+        room = internal_room_dict.get(room_no.lower())
         if room:
-            total_capacity += room.max_guests + 1
-    return total_capacity >= guest_no
+            room_info.append((room.max_guests + 1, dates))
+
+    if not room_info:
+        return False
+
+    d = start_dt
+    while d + timedelta(days=duration_nights - 1) <= end_dt:
+        window = [(d + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(duration_nights)]
+
+        for split in range(1, duration_nights):
+            p1, p2 = window[:split], window[split:]
+            cap1 = sum(cap for cap, dates in room_info if all(nd in dates for nd in p1))
+            cap2 = sum(cap for cap, dates in room_info if all(nd in dates for nd in p2))
+            if cap1 >= guest_no and cap2 >= guest_no:
+                return True
+
+        d += timedelta(days=1)
+
+    return False
 
 def _filter_by_requested_rooms_or_types(
     all_rooms: RoomAvailabilityResult,

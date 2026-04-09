@@ -2,13 +2,14 @@ import json
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from langgraph.graph.state import CompiledStateGraph
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db
+from api.dependencies import get_db, get_graph
 from agent.context.agent_service_provider import AgentServiceProvider
 
 logger = logging.getLogger(__name__)
@@ -56,27 +57,26 @@ def _has_tool_calls(msg) -> bool:
 
 @router.post("/threads/{thread_id}/runs/stream")
 async def stream_run(
-    thread_id: str, 
-    body: RunInput, 
-    request: Request,
-    db: AsyncSession = Depends(get_db)
+    thread_id: str,
+    body: RunInput,
+    graph: CompiledStateGraph = Depends(get_graph),
+    db: AsyncSession = Depends(get_db),
 ):
     """Stream a graph run, matching LangGraph Agent Server SSE format."""
-
-    graph = request.app.state.graph
     context = AgentServiceProvider(db_session=db)
-    config = {"configurable": {"thread_id": thread_id, "context": context}}
+    config = {"configurable": {"thread_id": thread_id}}
     run_id = str(uuid.uuid4())
 
     async def event_generator():
         yield _sse_event("metadata", {"run_id": run_id})
 
         try:
-            async for chunk in graph.astream(
+            async for chunk in graph.astream( # type: ignore[call-overload]
                 body.input or {},
                 config,
                 stream_mode=["messages", "values", "custom"],
                 version="v2",
+                context=context,
             ):
                 event_type = chunk["type"]
                 data = chunk["data"]

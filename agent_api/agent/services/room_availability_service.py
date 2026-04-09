@@ -96,3 +96,32 @@ class RoomAvailabilityService:
             }
 
         return result_rooms
+
+    async def is_room_available(self, room_no: str, check_in: str, check_out: str) -> bool:
+        """Check if a room is available for [check_in, check_out) by making a fresh PMS call (no caching)."""
+        check_in_dt = datetime.strptime(check_in, "%Y-%m-%d")
+        check_out_dt = datetime.strptime(check_out, "%Y-%m-%d")
+
+        # Build the set of required dates: [check_in, check_out)
+        required_dates: Set[str] = {
+            (check_in_dt + timedelta(days=i)).strftime("%Y-%m-%d")
+            for i in range((check_out_dt - check_in_dt).days)
+        }
+
+        # Fetch fresh PMS data in 14-day windows to cover the full stay
+        available_dates: Set[str] = set()
+        cursor = check_in_dt
+        while cursor < check_out_dt:
+            pms_data = await self.pms_client.fetch_room_availability_window(
+                cursor.strftime("%Y-%m-%d")
+            )
+            room_key = room_no.lower()
+            room_info = pms_data["rooms"].get(room_key)
+            if room_info:
+                available_dates.update(room_info["dates"])
+
+            # Advance cursor past this window
+            pms_end = datetime.strptime(pms_data["to_date"], "%Y-%m-%d") + timedelta(days=1)
+            cursor = pms_end
+
+        return required_dates.issubset(available_dates)
