@@ -16,19 +16,23 @@ from db.models import RoomPhoto, Room as RoomModel
 router = APIRouter(tags=["room_photos"])
 
 PHOTOS_DIR = STATIC_DIR / "photos" / "rooms"
+THUMBNAIL_WIDTHS = (240, 480, 960)
 
 
-def _create_thumbnail(source_path, dest_path, size=(600, 400)):
-    """Create a thumbnail for an image."""
+def _create_thumbnails(source_path, room_photos_dir, filename):
+    """Generate three JPEG thumbnails at 240w, 480w, 960w with aspect-preserving resize."""
     try:
         with PILImage.open(source_path) as img:
-            # Convert to RGB if necessary (e.g. for RGBA or CMYK)
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
-            img.thumbnail(size)
-            img.save(dest_path, "JPEG", quality=85)
+            for width in THUMBNAIL_WIDTHS:
+                dest_dir = room_photos_dir / "thumbnails" / str(width)
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                resized = img.copy()
+                resized.thumbnail((width, 10000))
+                resized.save(dest_dir / filename, "JPEG", quality=85)
     except Exception as e:
-        print(f"Error creating thumbnail: {e}")
+        print(f"Error creating thumbnails: {e}")
 
 
 @router.get("/api/rooms/{room_id}/photos", response_model=list[PhotoResponse])
@@ -53,7 +57,10 @@ async def list_photos(room_id: int, db: AsyncSession = Depends(get_db)):
             filename=photo.filename,
             sort_order=photo.sort_order,
             url=f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/{photo.filename}",
-            thumbnail_url=f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/thumbnails/{photo.filename}",
+            thumbnails={
+                w: f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/thumbnails/{w}/{photo.filename}"
+                for w in THUMBNAIL_WIDTHS
+            },
         )
         for photo in photos
     ]
@@ -89,10 +96,8 @@ async def upload_photo(
     with open(filepath, "wb") as f:
         f.write(content)
 
-    # Create thumbnail
-    thumbnails_dir = room_photos_dir / "thumbnails"
-    thumbnails_dir.mkdir(exist_ok=True)
-    _create_thumbnail(filepath, thumbnails_dir / filename)
+    # Create thumbnails (240w, 480w, 960w)
+    _create_thumbnails(filepath, room_photos_dir, filename)
 
     # Get max sort_order for this room
     result = await db.execute(
@@ -118,7 +123,10 @@ async def upload_photo(
         filename=photo.filename,
         sort_order=photo.sort_order,
         url=f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/{filename}",
-        thumbnail_url=f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/thumbnails/{filename}",
+        thumbnails={
+            w: f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/thumbnails/{w}/{filename}"
+            for w in THUMBNAIL_WIDTHS
+        },
     )
 
 
@@ -142,10 +150,11 @@ async def delete_photo(
     if filepath.exists():
         filepath.unlink()
 
-    # Delete thumbnail
-    thumbnail_path = PHOTOS_DIR / str(room_id) / "thumbnails" / photo.filename
-    if thumbnail_path.exists():
-        thumbnail_path.unlink()
+    # Delete all thumbnail sizes
+    for w in THUMBNAIL_WIDTHS:
+        thumbnail_path = PHOTOS_DIR / str(room_id) / "thumbnails" / str(w) / photo.filename
+        if thumbnail_path.exists():
+            thumbnail_path.unlink()
 
     # Delete from database
     await db.execute(delete(RoomPhoto).where(RoomPhoto.id == photo_id))

@@ -10,7 +10,7 @@ class PhotoResponse(BaseModel):
     filename: str
     sort_order: int
     url: str
-    thumbnail_url: str
+    thumbnails: dict[int, str]  # keyed by width in px: {240: "...", 480: "...", 960: "..."}
 
     model_config = {"from_attributes": True}
 
