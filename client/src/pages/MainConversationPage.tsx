@@ -20,8 +20,6 @@ export function MainConversationPage() {
     },
   });
 
-  console.log("values", values)
-  // console.log("messages main", messages)
 
   const uiMessages = (values?.ui ?? []) as (GenUIMessage & {
     message?: { id?: string };

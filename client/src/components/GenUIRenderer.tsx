@@ -1,9 +1,6 @@
 import { memo } from "react"
 import type { RoomData } from "./gen-ui-compopnents/RoomCard"
-import { RoomInfo } from "./gen-ui-compopnents/RoomInfo"
-import { RoomsList } from "./gen-ui-compopnents/RoomsList"
 import { SearchResultsList } from "./gen-ui-compopnents/SearchResultsList"
-import { SuggestedAnswers } from "./gen-ui-compopnents/SuggestedAnswers"
 
 type GenUIMessage =
    { type: "ui"; id: string; name: "search_results";  props: { rooms: RoomData[] } }
@@ -23,42 +20,10 @@ export const GenUIRenderer = memo(function GenUIRenderer({
   isLoading,
 }: GenUIRendererProps) {
   switch (message.name) {
-    case "rooms_list":
-      return (
-        <RoomsList
-          rooms={message.props.rooms}
-          loading={message.props.loading}
-        />
-      )
-    case "room_detail": {
-      const { room, loading } = message.props
-      if (!loading && !room) return null
-      return (
-        <RoomInfo
-          room={room}
-          loading={loading}
-        />
-      )
-    }
-    case "search_window":
-      return (
-        <SearchResultsList rooms={message.props.rooms} label={message.props.label} />
-      )
     case "search_results":
       return (
         <SearchResultsList rooms={message.props.rooms} />
       )
-    case "suggested_answers": {
-      const { options } = message.props
-      if (!isLoading && !options.length) return null
-      return (
-        <SuggestedAnswers
-          options={options}
-          onSelect={onSubmitMessage}
-          disabled={isLoading}
-        />
-      )
-    }
     default:
       return null
   }

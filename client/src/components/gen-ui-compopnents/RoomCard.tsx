@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { CalendarDays } from "lucide-react"
 
 export interface DateRange {
   start: string
@@ -44,7 +45,6 @@ export function RoomCard({
 }) {
   const photoSrc = room.thumbnail_url ?? null
   const [imgLoaded, setImgLoaded] = useState(false)
-
   return (
     <div
       className="rounded-xl overflow-hidden bg-card cursor-pointer group hover:-translate-y-1 transition-all duration-300"
@@ -70,39 +70,43 @@ export function RoomCard({
       <div className="p-3">
         <div className="font-semibold text-base leading-tight text-foreground">{room.room_name}</div>
         <div className="text-xs text-muted-foreground mt-0.5">{room.room_type}</div>
-        <div className="text-xs text-muted-foreground mt-1">
-          {room.max_guests} guests
-          {room.bed_queen > 0 ? ` · ${room.bed_queen}Q` : ""}
-          {room.bed_single > 0 ? ` ${room.bed_single}S` : ""}
-        </div>
         <div className="mt-2">
           <span className="text-xs text-muted-foreground">Starting </span>
           <span className="font-bold text-tropical-coral">฿{room.price_weekdays.toLocaleString()}</span>
           <span className="text-xs font-normal text-muted-foreground ml-1">/ night</span>
         </div>
-        {room.availability?.date_ranges && room.availability.date_ranges.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {room.availability.date_ranges.slice(0, 3).map((d, i) => (
-              <span
-                key={i}
-                className="rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-300 px-2 py-0.5 text-[10px] font-medium"
-              >
-                {formatDatePill(d.start_date, d.end_date)}
-              </span>
-            ))}
-            {room.availability.date_ranges.length > 3 && (
-              <span className="text-[10px] text-muted-foreground self-center">
-                +{room.availability.date_ranges.length - 3} more
-              </span>
-            )}
+        {room.date_ranges && room.date_ranges.length > 0 && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <CalendarDays size={12} className="shrink-0 opacity-70" />
+            <span className="flex items-center gap-1.5 min-w-0 flex-wrap">
+              {room.date_ranges.slice(0, 2).map((d, i) => (
+                <span key={i} className="inline-flex items-center gap-1 whitespace-nowrap">
+                  {i > 0 && <span className="text-muted-foreground/50">·</span>}
+                  <span className="text-foreground/80 font-medium tabular-nums">
+                    {formatDatePill(d.start, d.end)}
+                  </span>
+                  <span className="text-muted-foreground/70 tabular-nums">
+                    · {calcNights(d.start, d.end)}n
+                  </span>
+                </span>
+              ))}
+              {room.date_ranges.length > 2 && (
+                <span className="text-muted-foreground/70 whitespace-nowrap">
+                  · +{room.date_ranges.length - 2} more
+                </span>
+              )}
+            </span>
           </div>
-        )}
-        {room.availability?.extra_bed_required && (
-          <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">Extra bed needed</div>
         )}
       </div>
     </div>
   )
+}
+
+function calcNights(start: string, end: string): number {
+  const s = new Date(start + "T00:00:00")
+  const e = new Date(end + "T00:00:00")
+  return Math.round((e.getTime() - s.getTime()) / 86_400_000)
 }
 
 function formatDatePill(start: string, end: string): string {

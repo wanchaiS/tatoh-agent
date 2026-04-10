@@ -1,16 +1,16 @@
 import { PhotoLightbox } from "@/components/PhotoLightbox"
 import type { PhotoResponse } from "@/hooks/usePhotos"
 import { useListPhotos } from "@/hooks/usePhotos"
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import type { RoomData } from "./RoomCard"
 import { RoomDetailSkeleton } from "./RoomDetailSkeleton"
 
-interface RoomInfoProps {
+interface RoomDetailProps {
   room: RoomData | null
   loading?: boolean
 }
 
-export function RoomInfo({ room, loading }: RoomInfoProps) {
+export function RoomDetail({ room, loading }: RoomDetailProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [loadedImages, setLoadedImages] = useState<Record<number, boolean>>({})
@@ -34,11 +34,6 @@ export function RoomInfo({ room, loading }: RoomInfoProps) {
         }]
       : []
 
-  useEffect(() => {
-    setLoadedImages({})
-    setActiveIndex(0)
-    scrollRef.current?.scrollTo({ left: 0 })
-  }, [room?.id])
 
   function handleScroll() {
     const el = scrollRef.current
@@ -151,13 +146,13 @@ export function RoomInfo({ room, loading }: RoomInfoProps) {
         </div>
 
         {/* Available Dates (search results) */}
-        {room.availability?.date_ranges && room.availability.date_ranges.length > 0 && (
+        {room.date_ranges && room.date_ranges.length > 0 && (
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-2">Available Dates</h3>
             <div className="flex flex-col gap-1.5">
-              {room.availability.date_ranges.map((d, i) => {
-                const start = new Date(d.start_date + "T00:00:00")
-                const end = new Date(d.end_date + "T00:00:00")
+              {room.date_ranges.map((d, i) => {
+                const start = new Date(d.start + "T00:00:00")
+                const end = new Date(d.end + "T00:00:00")
                 const nights = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
                 const fmt = (dt: Date) => dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
                 return (
@@ -173,12 +168,6 @@ export function RoomInfo({ room, loading }: RoomInfoProps) {
                 )
               })}
             </div>
-            {room.availability?.extra_bed_required && (
-              <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-                <span>🛏</span>
-                <span>Extra bed needed (+฿500/night)</span>
-              </div>
-            )}
           </div>
         )}
 

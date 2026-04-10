@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import type { RoomData } from "./RoomCard"
-import { RoomInfo } from "./RoomInfo"
+import { RoomDetail } from "./RoomDetail"
 
 interface RoomCardFocusViewProps {
   room: RoomData
@@ -35,7 +35,7 @@ export function RoomCardFocusView({ room, hasPrev, hasNext, prevRoomName, nextRo
         </div>
       </div>
 
-      <RoomInfo room={room} />
+      <RoomDetail room={room} />
     </div>
   )
 }
