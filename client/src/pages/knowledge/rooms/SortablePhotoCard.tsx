@@ -60,7 +60,7 @@ export function SortablePhotoCard({ photo, onDelete, onOpen }: SortablePhotoCard
           onClick={onOpen}
         >
           <img
-            src={photo.thumbnail_url}
+            src={photo.thumbnails[480]}
             alt="Room photo"
             className="w-full h-full object-cover"
             loading="lazy"

@@ -1,16 +1,17 @@
-import type { RoomData } from "@/components/gen-ui-compopnents/RoomCard"
 import { useEffect, useRef, useState } from "react"
-import { ROOM_PIN_POSITIONS } from "./mockData"
+
+import type { RoomCardData } from "./RoomCard"
 
 interface ResortMapProps {
-  rooms: RoomData[]
+  rooms: RoomCardData[]
   mapSrc: string
+  pinPositions: Record<number, { x: number; y: number }>
   selectedRoomId?: number | null
-  onSelectRoom?: (room: RoomData) => void
+  onSelectRoom?: (room: RoomCardData) => void
   onMapClick?: () => void
 }
 
-export function ResortMap({ rooms, mapSrc, selectedRoomId, onSelectRoom, onMapClick }: ResortMapProps) {
+export function ResortMap({ rooms, mapSrc, pinPositions, selectedRoomId, onSelectRoom, onMapClick }: ResortMapProps) {
   const imgRef = useRef<HTMLImageElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [imgRect, setImgRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
@@ -46,6 +47,9 @@ export function ResortMap({ rooms, mapSrc, selectedRoomId, onSelectRoom, onMapCl
         src={mapSrc}
         alt="Resort map"
         onLoad={updateImgRect}
+        loading="lazy"
+        width={1200}
+        height={900}
         className="w-full h-auto rounded-xl"
       />
 
@@ -62,7 +66,7 @@ export function ResortMap({ rooms, mapSrc, selectedRoomId, onSelectRoom, onMapCl
       )}
 
       {imgRect && rooms.map((room) => {
-        const pos = ROOM_PIN_POSITIONS[room.id]
+        const pos = pinPositions[room.id]
         if (!pos) return null
         const isSelected = selectedRoomId === room.id
         const pinLeft = imgRect.left + (pos.x / 100) * imgRect.width

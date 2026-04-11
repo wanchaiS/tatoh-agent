@@ -29,7 +29,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { PhotoManager } from './PhotoManager'
@@ -121,6 +121,11 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
         },
   })
 
+  const [watchBaths, watchSize, watchMaxGuests] = useWatch({
+    control: form.control,
+    name: ['baths', 'size', 'max_guests'],
+  })
+
   const handleTagsChange = (input: string) => {
     const tagList = input.split(',').map((t) => t.trim()).filter(Boolean)
     setTags(tagList)
@@ -137,7 +142,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
         form.reset(values)
         toast.success('Room updated successfully')
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to save room')
     }
   }
@@ -148,7 +153,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
       await deleteRoom.mutateAsync(room.id)
       toast.success('Room deleted successfully')
       navigate({ to: '/knowledge/rooms' })
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete room')
     }
   }
@@ -194,7 +199,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                     <FormField
                       control={form.control}
                       name="room_name"
-                      render={({ field }: any) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Room Name</FormLabel>
                           <FormControl>
@@ -208,7 +213,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                     <FormField
                       control={form.control}
                       name="room_type"
-                      render={({ field }: any) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Room Type</FormLabel>
                           <FormControl>
@@ -224,7 +229,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                   <FormField
                     control={form.control}
                     name="tags"
-                    render={({ field }: any) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tags (comma-separated)</FormLabel>
                         <FormControl>
@@ -263,7 +268,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                     <FormField
                       control={form.control}
                       name="summary"
-                      render={({ field }: any) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Summary</FormLabel>
                           <FormControl>
@@ -285,7 +290,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                       <FormField
                         control={form.control}
                         name="price_weekdays"
-                        render={({ field }: any) => (
+                        render={({ field }) => (
                           <FormItem>
                             <FormLabel>Weekday</FormLabel>
                             <FormControl>
@@ -299,7 +304,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                       <FormField
                         control={form.control}
                         name="price_weekends_holidays"
-                        render={({ field }: any) => (
+                        render={({ field }) => (
                           <FormItem>
                             <FormLabel>Weekend/Holiday</FormLabel>
                             <FormControl>
@@ -313,7 +318,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                       <FormField
                         control={form.control}
                         name="price_ny_songkran"
-                        render={({ field }: any) => (
+                        render={({ field }) => (
                           <FormItem>
                             <FormLabel>NY/Songkran</FormLabel>
                             <FormControl>
@@ -331,21 +336,21 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                     <h3 className="text-sm font-semibold mb-4">Specifications</h3>
                     <div className="space-y-4">
                       <div className="flex flex-wrap gap-2">
-                        {form.watch('baths') > 0 && (
-                          <SpecTag>{form.watch('baths')} Bath{form.watch('baths') !== 1 ? 's' : ''}</SpecTag>
+                        {watchBaths > 0 && (
+                          <SpecTag>{watchBaths} Bath{watchBaths !== 1 ? 's' : ''}</SpecTag>
                         )}
-                        {form.watch('size') > 0 && (
-                          <SpecTag>{form.watch('size')} sqm</SpecTag>
+                        {watchSize > 0 && (
+                          <SpecTag>{watchSize} sqm</SpecTag>
                         )}
-                        {form.watch('max_guests') > 0 && (
-                          <SpecTag>{form.watch('max_guests')} Guest{form.watch('max_guests') !== 1 ? 's' : ''}</SpecTag>
+                        {watchMaxGuests > 0 && (
+                          <SpecTag>{watchMaxGuests} Guest{watchMaxGuests !== 1 ? 's' : ''}</SpecTag>
                         )}
                       </div>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-5">
                         <FormField
                           control={form.control}
                           name="bed_queen"
-                          render={({ field }: any) => (
+                          render={({ field }) => (
                             <FormItem>
                               <FormLabel>Queen Beds</FormLabel>
                               <FormControl>
@@ -359,7 +364,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                         <FormField
                           control={form.control}
                           name="bed_single"
-                          render={({ field }: any) => (
+                          render={({ field }) => (
                             <FormItem>
                               <FormLabel>Single Beds</FormLabel>
                               <FormControl>
@@ -373,7 +378,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                         <FormField
                           control={form.control}
                           name="baths"
-                          render={({ field }: any) => (
+                          render={({ field }) => (
                             <FormItem>
                               <FormLabel>Bathrooms</FormLabel>
                               <FormControl>
@@ -387,7 +392,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                         <FormField
                           control={form.control}
                           name="size"
-                          render={({ field }: any) => (
+                          render={({ field }) => (
                             <FormItem>
                               <FormLabel>Size (sqm)</FormLabel>
                               <FormControl>
@@ -401,7 +406,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                         <FormField
                           control={form.control}
                           name="max_guests"
-                          render={({ field }: any) => (
+                          render={({ field }) => (
                             <FormItem>
                               <FormLabel>Max Guests</FormLabel>
                               <FormControl>
@@ -435,7 +440,7 @@ export function RoomDetail({ room, isNew = false, tab, onTabChange }: RoomDetail
                       key={name}
                       control={form.control}
                       name={name}
-                      render={({ field: fieldProps }: any) => (
+                      render={({ field: fieldProps }) => (
                         <FormItem>
                           <div className="flex justify-between items-center">
                             <FormLabel>{label}</FormLabel>

@@ -2,8 +2,8 @@ import { Fragment, useEffect, useRef } from "react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-import { GenUIRenderer, type GenUIMessage } from "./GenUIRenderer";
 import type { BaseMessage } from "@langchain/core/messages";
+import { GenUIRenderer, type GenUIMessage } from "./GenUIRenderer";
 
 function TypingIndicator() {
   return (
@@ -24,15 +24,13 @@ function TypingIndicator() {
 interface ConversationProps {
   messages: BaseMessage[];
   uiMessages: (GenUIMessage & { message?: { id?: string } })[];
-  isLoading: boolean;
-  onSubmitFromUI: (text: string) => void;
+  isAiLoading: boolean;
 }
 
 export function Conversation({
   messages,
   uiMessages,
-  isLoading,
-  onSubmitFromUI,
+  isAiLoading,
 }: ConversationProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -77,13 +75,11 @@ export function Conversation({
                   <GenUIRenderer
                     key={ui.id}
                     message={ui}
-                    onSubmitMessage={onSubmitFromUI}
-                    isLoading={isLoading}
                   />
                 ))}
             </Fragment>
           ))}
-        {isLoading && <TypingIndicator />}
+        {isAiLoading && <TypingIndicator />}
         <div ref={bottomRef} />
       </div>
     </ScrollArea>

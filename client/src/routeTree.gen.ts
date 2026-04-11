@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PrototypeRouteImport } from './routes/prototype'
 import { Route as KnowledgeRouteRouteImport } from './routes/knowledge/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as KnowledgeIndexRouteImport } from './routes/knowledge/index'
@@ -19,11 +18,6 @@ import { Route as KnowledgeBoatSchedulesIndexRouteImport } from './routes/knowle
 import { Route as KnowledgeRoomsNewRouteImport } from './routes/knowledge/rooms/new'
 import { Route as KnowledgeRoomsIdRouteImport } from './routes/knowledge/rooms/$id'
 
-const PrototypeRoute = PrototypeRouteImport.update({
-  id: '/prototype',
-  path: '/prototype',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const KnowledgeRouteRoute = KnowledgeRouteRouteImport.update({
   id: '/knowledge',
   path: '/knowledge',
@@ -70,7 +64,6 @@ const KnowledgeRoomsIdRoute = KnowledgeRoomsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/knowledge': typeof KnowledgeRouteRouteWithChildren
-  '/prototype': typeof PrototypeRoute
   '/knowledge/': typeof KnowledgeIndexRoute
   '/knowledge/rooms/$id': typeof KnowledgeRoomsIdRoute
   '/knowledge/rooms/new': typeof KnowledgeRoomsNewRoute
@@ -80,7 +73,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/prototype': typeof PrototypeRoute
   '/knowledge': typeof KnowledgeIndexRoute
   '/knowledge/rooms/$id': typeof KnowledgeRoomsIdRoute
   '/knowledge/rooms/new': typeof KnowledgeRoomsNewRoute
@@ -92,7 +84,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/knowledge': typeof KnowledgeRouteRouteWithChildren
-  '/prototype': typeof PrototypeRoute
   '/knowledge/': typeof KnowledgeIndexRoute
   '/knowledge/rooms/$id': typeof KnowledgeRoomsIdRoute
   '/knowledge/rooms/new': typeof KnowledgeRoomsNewRoute
@@ -105,7 +96,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/knowledge'
-    | '/prototype'
     | '/knowledge/'
     | '/knowledge/rooms/$id'
     | '/knowledge/rooms/new'
@@ -115,7 +105,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/prototype'
     | '/knowledge'
     | '/knowledge/rooms/$id'
     | '/knowledge/rooms/new'
@@ -126,7 +115,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/knowledge'
-    | '/prototype'
     | '/knowledge/'
     | '/knowledge/rooms/$id'
     | '/knowledge/rooms/new'
@@ -138,18 +126,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   KnowledgeRouteRoute: typeof KnowledgeRouteRouteWithChildren
-  PrototypeRoute: typeof PrototypeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/prototype': {
-      id: '/prototype'
-      path: '/prototype'
-      fullPath: '/prototype'
-      preLoaderRoute: typeof PrototypeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/knowledge': {
       id: '/knowledge'
       path: '/knowledge'
@@ -234,7 +214,6 @@ const KnowledgeRouteRouteWithChildren = KnowledgeRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   KnowledgeRouteRoute: KnowledgeRouteRouteWithChildren,
-  PrototypeRoute: PrototypeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

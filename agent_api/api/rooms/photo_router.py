@@ -8,7 +8,8 @@ from PIL import Image as PILImage
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import STATIC_DIR, STATIC_URL_PREFIX
+from core.config import STATIC_DIR
+from core.photo_helpers import THUMBNAIL_WIDTHS, build_photo_urls
 from api.dependencies import get_db
 from api.rooms.photo_schemas import PhotoReorderItem, PhotoResponse
 from db.models import RoomPhoto, Room as RoomModel
@@ -16,7 +17,6 @@ from db.models import RoomPhoto, Room as RoomModel
 router = APIRouter(tags=["room_photos"])
 
 PHOTOS_DIR = STATIC_DIR / "photos" / "rooms"
-THUMBNAIL_WIDTHS = (240, 480, 960)
 
 
 def _create_thumbnails(source_path, room_photos_dir, filename):
@@ -56,11 +56,7 @@ async def list_photos(room_id: int, db: AsyncSession = Depends(get_db)):
             id=photo.id,
             filename=photo.filename,
             sort_order=photo.sort_order,
-            url=f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/{photo.filename}",
-            thumbnails={
-                w: f"{STATIC_URL_PREFIX}/photos/rooms/{room_id}/thumbnails/{w}/{photo.filename}"
-                for w in THUMBNAIL_WIDTHS
-            },
+            **build_photo_urls(room_id, photo.filename),
         )
         for photo in photos
     ]

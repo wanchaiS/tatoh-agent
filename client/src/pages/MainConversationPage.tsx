@@ -1,4 +1,3 @@
-import { uiMessageReducer } from "@langchain/langgraph-sdk/react-ui";
 import { useStream } from "@langchain/react";
 import { useCallback } from "react";
 
@@ -11,13 +10,6 @@ export function MainConversationPage() {
     apiUrl: window.location.origin,
     assistantId: "agent",
     messagesKey: "messages",
-    
-    onCustomEvent: (event, options) => {
-      options.mutate((prev: any) => {
-        const ui = uiMessageReducer((prev.ui as any[]) || [], event as any);
-        return { ...prev, ui };
-      });
-    },
   });
 
 
@@ -39,8 +31,7 @@ export function MainConversationPage() {
         <Conversation
           messages={messages}
           uiMessages={uiMessages}
-          isLoading={isLoading}
-          onSubmitFromUI={handleSubmit}
+          isAiLoading={isLoading}
         />
         <ChatInput onSubmit={handleSubmit} isLoading={isLoading} />
       </main>

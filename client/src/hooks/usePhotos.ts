@@ -5,7 +5,7 @@ export interface PhotoResponse {
   filename: string
   sort_order: number
   url: string
-  thumbnail_url: string
+  thumbnails: Record<number, string>  // { 240: "...", 480: "...", 960: "..." }
 }
 
 export interface PhotoReorderItem {

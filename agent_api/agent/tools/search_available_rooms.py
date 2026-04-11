@@ -81,6 +81,7 @@ async def search_available_rooms(
                     tool_call_id=runtime.tool_call_id,
                 )],
                 "pending_render_search_results": {"append": [filtered]},
+                "pending_search_range": {"start": start_date, "end": end_date},
             })
 
     # Approach 2: No specific rooms required
@@ -113,12 +114,13 @@ async def search_available_rooms(
                         )
                     ],
                     "pending_render_search_results": {"append": [search_result]},
+                    "pending_search_range": {"start": effective_start, "end": effective_end},
                 }
             )
         # guest_no is required for combination check
         if guest_no is None:
             return """No rooms available for the full duration on {start_date} and {end_date},
-            but room combinations may work. guest_no is required to check. 
+            but room combinations may work. guest_no is required to check.
             Ask the user if they want to mix and match rooms, and pls provide the number of guests if they want mix and match"""
 
         # Step 2: No full-duration rooms — check if combinations can accommodate guest_no
@@ -133,6 +135,7 @@ async def search_available_rooms(
                         )
                     ],
                     "pending_render_search_results": {"append": [search_result_w_1_night]},
+                    "pending_search_range": {"start": effective_start, "end": effective_end},
                 }
             )
 

@@ -1,25 +1,28 @@
-import { useState, useEffect, useRef } from 'react'
+import type { DragEndEvent } from '@dnd-kit/core'
 import {
-  DndContext,
   closestCenter,
+  DndContext,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import type { DragEndEvent } from '@dnd-kit/core'
 import {
   arrayMove,
+  rectSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
-  rectSortingStrategy,
 } from '@dnd-kit/sortable'
-import { Plus, Image, Loader2, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useListPhotos, useDeletePhoto, useReorderPhotos, useUploadPhoto } from '@/hooks/usePhotos'
-import { SortablePhotoCard } from './SortablePhotoCard'
-import { PhotoLightbox } from '@/components/PhotoLightbox'
+import { Image, Loader2, Plus, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import type { Slide } from "yet-another-react-lightbox"
+
+import { PhotoLightbox } from '@/components/PhotoLightbox'
+import { Button } from '@/components/ui/button'
+import { useDeletePhoto, useListPhotos, useReorderPhotos, useUploadPhoto } from '@/hooks/usePhotos'
+
+import { SortablePhotoCard } from './SortablePhotoCard'
 
 interface PhotoManagerProps {
   roomId: number
@@ -157,6 +160,14 @@ export function PhotoManager({ roomId }: PhotoManagerProps) {
     }
   }
 
+    const lightboxPhotos: Slide[] = photoItems.map(p => ({
+    src: p.url,
+    srcSet: [
+      { src: p.thumbnails[480], width: 480, height: 320 },
+      { src: p.thumbnails[960], width: 960, height: 640 },
+    ],
+  }))
+
   const stagingStrip = stagedFiles.length > 0 && (
     <div className="mt-4 rounded-lg p-3 space-y-3" style={{ backgroundColor: 'oklch(from var(--tropical-sand) l c h / 0.25)' }}>
       <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
@@ -268,7 +279,7 @@ export function PhotoManager({ roomId }: PhotoManagerProps) {
       )}
 
       <PhotoLightbox
-        photos={photoItems}
+        slides={lightboxPhotos}
         initialIndex={lightboxIndex ?? 0}
         open={lightboxIndex !== null}
         onOpenChange={(open) => !open && setLightboxIndex(null)}

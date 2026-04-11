@@ -19,7 +19,13 @@ from agent.tools.search_available_rooms import RoomAvailabilityResult, search_av
 from db.models import Room
                                                                                                                                                                                                                                                                                      
 
+class EmbeddedPhoto(TypedDict):
+    url: str
+    thumbnails: dict[int, str]  # {240: url, 480: url, 960: url}
+
+
 class RoomCard(TypedDict):
+    id: int
     room_name: str
     room_type: str
     summary: str
@@ -39,7 +45,31 @@ class RoomCard(TypedDict):
     room_newness: int
     tags: list[str]
     thumbnail_url: str
+    photos: list[EmbeddedPhoto]
     date_ranges: list[dict[str, str]]
+
+
+MAP_SRC = "/static/photos/maps/resort_map.jpeg"
+
+ROOM_PIN_POSITIONS: dict[int, dict[str, float]] = {
+    18: {"x": 88.4, "y": 47.6},   # S1
+    19: {"x": 66.5, "y": 47.4},   # S2
+    20: {"x":  8.8, "y": 50.2},   # S3
+    21: {"x": 25.6, "y": 69.7},   # S4
+    22: {"x": 40.6, "y": 47.0},   # S5
+    23: {"x": 44.0, "y": 85.6},   # S6
+    24: {"x":  8.2, "y": 87.0},   # S7
+    25: {"x": 70.7, "y": 68.3},   # S8
+    26: {"x": 56.3, "y": 86.4},   # S9
+    27: {"x":  9.7, "y": 36.7},   # S10
+    28: {"x": 29.8, "y": 34.5},   # S11
+    29: {"x": 61.5, "y": 38.0},   # S12
+    30: {"x": 82.1, "y": 38.4},   # S14
+    31: {"x": 26.1, "y": 87.2},   # V1
+    32: {"x": 50.9, "y": 69.9},   # V2
+    33: {"x": 92.9, "y": 58.8},   # V3
+}
+
 
 @dataclass
 class InternalRoom:
@@ -63,6 +93,7 @@ class InternalRoom:
     room_newness: int
     tags: list[str]
     thumbnail_url: str
+    photos: list[EmbeddedPhoto]
 
 
 def list_reducer(existing: list[str], update: dict) -> list[str]:
@@ -101,6 +132,7 @@ def list_reducer(existing: list[str], update: dict) -> list[str]:
 class State(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     pending_render_search_results: Annotated[list[RoomAvailabilityResult], list_reducer]
+    pending_search_range: dict[str, str] | None  # {"start": ..., "end": ...}
     ui: Annotated[Sequence[AnyUIMessage], ui_message_reducer]
     rooms: Dict[str, InternalRoom] # no reducer, always replace
     # selected_rooms: Annotated[list[str], list_reducer]
@@ -261,11 +293,12 @@ def push_pending_search_results_ui_node(state: State):
             else:
                 merged[room_name].update(set(dates))
     
-    # populate room card
+    # populate room cards
     room_cards: list[RoomCard] = []
     for room_name, dates in merged.items():
         room = state["rooms"][room_name]
         room_cards.append({
+            "id": room.id,
             "room_name": room.room_name,
             "room_type": room.room_type,
             "summary": room.summary,
@@ -285,21 +318,29 @@ def push_pending_search_results_ui_node(state: State):
             "room_newness": room.room_newness,
             "tags": room.tags,
             "thumbnail_url": room.thumbnail_url,
+            "photos": room.photos,
             "date_ranges": dates_to_ranges(dates),
         })
-    
+
+    map_data = {
+        "src": MAP_SRC,
+        "pins": ROOM_PIN_POSITIONS,
+    }
+    search_range = state.get("pending_search_range") or {}
+
     # last ai message
     last_ai_message = state["messages"][-1]
 
     push_ui_message(
         name="search_results",
-        props= {"rooms": room_cards}, 
-        id=str(uuid.uuid4()), 
+        props={"rooms": room_cards, "map": map_data, "search_range": search_range},
+        id=str(uuid.uuid4()),
         message=last_ai_message
     )
-    
+
     return {
         "pending_render_search_results": "clear",
+        "pending_search_range": None,
     }
 
 def dates_to_ranges(dates: set[str]) -> list[dict[str, str]]:                                                                                                                                                                                                                          
@@ -324,10 +365,13 @@ async def context_node(state: State, runtime: Runtime[AgentServiceProvider]):
     """
     room_service = runtime.context.room_service
     rooms: list[Room] = await room_service.get_all_rooms()
-    thumbnail_urls = await room_service.get_first_photo_urls(room_ids=[room.id for room in rooms])
+    room_ids = [room.id for room in rooms]
+    all_photos = await room_service.get_all_photos_for_rooms(room_ids=room_ids)
 
     internal_room_dict: dict[str, InternalRoom] = {}
     for room in rooms:
+        photos = all_photos.get(room.id, [])
+        thumbnail_url = photos[0]["thumbnails"][240] if photos else ""
         internal_room_dict[room.room_name.lower()] = InternalRoom(
             id=room.id,
             room_name=room.room_name,
@@ -348,7 +392,8 @@ async def context_node(state: State, runtime: Runtime[AgentServiceProvider]):
             room_design=room.room_design,
             room_newness=room.room_newness,
             tags=room.tags.split(",") if room.tags else [],
-            thumbnail_url=thumbnail_urls.get(room.id) or "",
+            thumbnail_url=thumbnail_url,
+            photos=photos,
         )
     return {"rooms": internal_room_dict}
 
