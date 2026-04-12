@@ -40,7 +40,6 @@ function SidebarContent({
 }: ThreadSidebarProps & { onItemClick?: () => void }) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  console.log(user);
   async function handleLogout() {
     await logout();
     useAuthStore.getState().clearUser();

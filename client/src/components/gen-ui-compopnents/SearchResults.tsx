@@ -6,7 +6,6 @@ import { ResortMap } from "@/components/gen-ui-compopnents/ResortMap"
 import type { RoomCardData } from "./RoomCard"
 import { RoomCard } from "./RoomCard"
 
-
 function formatSearchWindow(start: string, end: string): string {
   const s = new Date(start + "T00:00:00")
   const e = new Date(end + "T00:00:00")
@@ -59,7 +58,7 @@ export function SearchResults({
           {/* Header */}
           <div className="flex items-baseline gap-2 flex-wrap">
             <span className="font-bold text-lg text-foreground">{rooms.length}</span>
-            <span className="font-semibold text-base text-foreground">
+            <span className="font-medium text-base text-foreground">
               {rooms.length === 1 ? "room" : "rooms"} available
             </span>
             {search_range?.start && search_range?.end && (
@@ -75,22 +74,20 @@ export function SearchResults({
           {/* Mobile: stacked. Desktop: side by side */}
           <div className="grid grid-cols-1 lg:grid-cols-[44%_1fr] gap-3 lg:gap-4 lg:items-start">
             {/* Map */}
-            <div>
-              <div className="lg:sticky lg:top-4">
-                <ResortMap
-                  rooms={rooms}
-                  mapSrc={map.src}
-                  pinPositions={map.pins}
-                  selectedRoomId={highlightedRoomId ?? expandedRoomId}
-                  onSelectRoom={handlePinClick}
-                  onMapClick={() => setMapLightboxOpen(true)}
-                />
-              </div>
+            <div className="lg:sticky lg:top-4">
+              <ResortMap
+                rooms={rooms}
+                mapSrc={map.src}
+                pinPositions={map.pins}
+                selectedRoomId={highlightedRoomId ?? expandedRoomId}
+                onSelectRoom={handlePinClick}
+                onMapClick={() => setMapLightboxOpen(true)}
+              />
             </div>
 
             {/* Card list */}
             <div className="mt-3 lg:mt-0 flex flex-col">
-              <div className="flex flex-col gap-2.5 max-h-[480px] lg:max-h-[600px] overflow-y-auto pr-1 scrollbar-hide">
+              <div className="flex flex-col gap-2.5 lg:max-h-[600px] lg:overflow-y-auto scrollbar-hide" style={{ touchAction: "pan-y" }}>
                 {rooms.map((room, i) => (
                   <div
                     key={room.id}
@@ -108,7 +105,7 @@ export function SearchResults({
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-muted-foreground text-center mt-1.5 lg:hidden">
+              <p className="text-xs text-muted-foreground text-center mt-1.5 lg:hidden">
                 Click map to enlarge · Scroll for more rooms
               </p>
             </div>

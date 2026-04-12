@@ -6,8 +6,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -126,6 +126,11 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-shimmer { animation: none; }
   .animate-card-enter { animation: none; }
+  .room-card,
+  .room-card * {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
 }
 
 @layer base {
@@ -140,6 +145,10 @@
     margin: 0;
     height: 100%;
     overflow: hidden;
+    font-kerning: normal;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   #root {
     height: 100%;
