@@ -1,94 +1,66 @@
-import time
-from dataclasses import dataclass, field, fields
-from typing import List, Optional
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from agent.utils.google_drive_client import read_spreadsheet_data
-
-_ROOMS_INFO_PATH = "/cooper-project/data/rooms_info"
-_CACHE_TTL = 600  # 10 minutes
-
-
-@dataclass
-class Room:
-    room_name: str
-    room_type: str
-    summary: str
-    beds: str
-    baths: int
-    size: float
-    price_weekdays: float
-    price_weekends_holidays: float
-    price_ny_songkran: float
-    max_guests: int
-    steps_to_beach: int
-    sea_view: int
-    privacy: int
-    steps_to_restaurant: int
-    room_design: int
-    room_newness: int
-    tags: List[str] = field(default_factory=list)
-
-
-_INT_FIELDS = {
-    "bath",
-    "max_guests",
-    "steps_to_beach",
-    "sea_view",
-    "privacy",
-    "steps_to_restaurant",
-    "room_design",
-    "room_newness",
-}
-_FLOAT_FIELDS = {
-    "size",
-    "price_weekdays",
-    "price_weekends_holidays",
-    "price_ny_songkran",
-}
-
-
-def _parse_room(raw: dict) -> Room:
-    """Convert a raw spreadsheet row dict into a typed Room."""
-    parsed = {}
-    for f in fields(Room):
-        value = raw.get(f.name, None)
-
-        if f.name == "tags":
-            parsed[f.name] = [t.strip() for t in (value or "").split(",") if t.strip()]
-        elif f.name in _INT_FIELDS:
-            parsed[f.name] = int(value) if value else 0
-        elif f.name in _FLOAT_FIELDS:
-            parsed[f.name] = float(value) if value else 0.0
-        else:
-            parsed[f.name] = str(value) if value else ""
-
-    return Room(**parsed)
+from db.models import Room, RoomPhoto
+from db.repositories.room_repository import RoomRepository
+from core.photo_helpers import build_photo_urls
+from sqlalchemy import func
 
 
 class RoomService:
-    """Singleton service that fetches and caches rooms data of the hotel."""
+    """Async service that reads rooms data from Postgres using an injected session."""
 
-    _instance: Optional["RoomService"] = None
+    def __init__(self, db: AsyncSession):
+        self.db = db
 
-    def __new__(cls) -> "RoomService":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._cache: Optional[List[Room]] = None
-            cls._instance._cache_expires_at: float = 0
-        return cls._instance
+    async def get_all_rooms(self) -> list[Room]:
+        """Return all rooms from Postgres."""
+        return await RoomRepository(self.db).get_all()
 
-    def get_all_rooms(self) -> List[Room]:
-        """Return all rooms, cached for 10 minutes."""
-        if self._cache is None or time.time() > self._cache_expires_at:
-            raw_rows = read_spreadsheet_data(_ROOMS_INFO_PATH)
-            self._cache = [_parse_room(row) for row in raw_rows]
-            self._cache_expires_at = time.time() + _CACHE_TTL
-        return self._cache
-
-    def get_room_by_name(self, room_name: str) -> Optional[Room]:
+    async def get_room_by_name(self, room_name: str) -> Room | None:
         """Look up a single room by its room_name (e.g. 'S1', 'V2')."""
-        return next((r for r in self.get_all_rooms() if r.room_name == room_name), None)
+        return await RoomRepository(self.db).get_by_name(room_name)
 
+    async def get_all_photos_for_rooms(self, room_ids: list[int]) -> dict[int, list[dict]]:
+        """Return all photos (url + thumbnails) per room, ordered by sort_order."""
+        if not room_ids:
+            return {}
+        result = await self.db.execute(
+            select(RoomPhoto)
+            .where(RoomPhoto.room_id.in_(room_ids))
+            .order_by(RoomPhoto.room_id, RoomPhoto.sort_order)
+        )
+        photos = result.scalars().all()
+        out: dict[int, list[dict]] = {rid: [] for rid in room_ids}
+        for p in photos:
+            out[p.room_id].append(build_photo_urls(p.room_id, p.filename))
+        return out
 
-# Module-level singleton for convenient imports
-room_service = RoomService()
+    async def get_first_photo_urls(self, room_ids: list[int]) -> dict[int, str | None]:
+        """Return thumbnail URLs for multiple rooms in a single query."""
+        if not room_ids:
+            return {}
+            
+        # Subquery to get the min sort_order photo per room_id
+        subq = (
+            select(
+                RoomPhoto.room_id,
+                func.min(RoomPhoto.sort_order).label("min_order"),
+            )
+            .where(RoomPhoto.room_id.in_(room_ids))
+            .group_by(RoomPhoto.room_id)
+            .subquery()
+        )
+        result = await self.db.execute(
+            select(RoomPhoto)
+            .join(
+                subq,
+                (RoomPhoto.room_id == subq.c.room_id)
+                & (RoomPhoto.sort_order == subq.c.min_order),
+            )
+        )
+        photos = result.scalars().all()
+        return {
+            p.room_id: f"{STATIC_URL_PREFIX}/photos/rooms/{p.room_id}/thumbnails/{p.filename}"
+            for p in photos
+        }

@@ -7,13 +7,13 @@ authors = [
 ]
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = [
-    "langgraph>=1.0.6",
+    "langgraph==1.1.6",
     "langchain>=0.3.0",
     "langchain-openai>=0.2.0",
     "python-dotenv>=1.0.1",
-    "typing-extensions>=4.12.0",
+    "pydantic-settings>=2.0.0",
     "holidays>=0.88",
     "google-api-python-client>=2.155.0",
     "google-auth>=2.36.0",
@@ -21,6 +21,14 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn>=0.32.0",
     "psycopg[binary]>=3.2.0",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "greenlet>=3.3.2",
+    "python-multipart>=0.0.22",
+    "pillow>=12.1.1",
+    "httpx>=0.27.0",
+    "pyjwt>=2.8.0",
+    "bcrypt>=5.0.0",
 ]
 
 
@@ -32,16 +40,27 @@ requires = ["setuptools>=73.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["langgraph.templates.agent", "agent", "utils", "api"]
+packages = ["langgraph.templates.agent", "agent", "utils", "api", "db", "core"]
 [tool.setuptools.package-dir]
 "langgraph.templates.agent" = "agent"
 "agent" = "agent"
 "utils" = "agent/utils"
 "api" = "api"
+"db" = "db"
+"core" = "core"
 
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = false
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+plugins = ["pydantic.mypy"]
 
 [tool.ruff]
 lint.select = [
@@ -56,9 +75,6 @@ lint.select = [
 lint.ignore = [
     "UP006",
     "UP007",
-    # We actually do want to import from typing_extensions
-    "UP035",
-    # Relax the convention by _not_ requiring documentation for every function parameter.
     "D417",
     "E501",
 ]
@@ -72,6 +88,7 @@ dev = [
     "anyio>=4.7.0",
     "langgraph-cli[inmem]>=0.4.7",
     "mypy>=1.13.0",
+    "pyrefly>=0.60.0",
     "pytest>=8.3.5",
     "ruff>=0.8.2",
 ]

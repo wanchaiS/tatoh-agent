@@ -9,7 +9,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Run the app
+### Run langgraph development
 ```bash
 langgraph dev
 ```
+
+### Run FastApi production
+```
+uv run uvicorn api.main:app --reload
+```
+

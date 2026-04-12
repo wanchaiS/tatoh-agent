@@ -1,23 +1,33 @@
 import json
+import logging
 import uuid
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AnyMessage
+from langgraph.graph.state import CompiledStateGraph
+from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from sqlalchemy import update
+
+from api.dependencies import get_db, get_graph
+from agent.context.agent_service_provider import AgentServiceProvider
+from db.models import GuestThread
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
 class RunInput(BaseModel):
     input: dict | None = None
-    stream_mode: list[str] | str = "values"
+    stream_mode: list[str] | str = ["values", "messages-tuple", "custom"]
     assistant_id: str = "agent"
 
 
 def _serialize(obj: object) -> object:
     """Make LangGraph output JSON-serializable."""
-    if isinstance(obj, AnyMessage):
+    if isinstance(obj, BaseMessage):
         return obj.model_dump(mode="json")
     if isinstance(obj, BaseModel):
         return obj.model_dump(mode="json")
@@ -33,41 +43,97 @@ def _sse_event(event: str, data: object) -> str:
     return f"event: {event}\ndata: {json.dumps(_serialize(data), default=str)}\n\n"
 
 
+def _get_msg_type(msg) -> str:
+    if isinstance(msg, BaseMessage):
+        return msg.type
+    if isinstance(msg, dict):
+        return msg.get("type", "")
+    return ""
+
+
+def _extract_human_text(input_data: dict | None) -> str | None:
+    if not input_data:
+        return None
+    for msg in input_data.get("messages", []):
+        if isinstance(msg, dict) and msg.get("type") == "human":
+            return msg.get("content")
+    return None
+
+
+async def _maybe_set_title(db: AsyncSession, thread_id: str, text: str) -> None:
+    title = text[:80].strip()
+    if not title:
+        return
+    await db.execute(
+        update(GuestThread)
+        .where(GuestThread.thread_id == thread_id, GuestThread.title.is_(None))
+        .values(title=title)
+    )
+    await db.commit()
+
+
+def _has_tool_calls(msg) -> bool:
+    if isinstance(msg, BaseMessage):
+        return bool(getattr(msg, "tool_calls", None))
+    if isinstance(msg, dict):
+        return bool(msg.get("tool_calls"))
+    return False
+
 @router.post("/threads/{thread_id}/runs/stream")
-async def stream_run(thread_id: str, body: RunInput, request: Request):
+async def stream_run(
+    thread_id: str,
+    body: RunInput,
+    graph: CompiledStateGraph = Depends(get_graph),
+    db: AsyncSession = Depends(get_db),
+):
     """Stream a graph run, matching LangGraph Agent Server SSE format."""
-    graph = request.app.state.graph
+    context = AgentServiceProvider(db_session=db)
     config = {"configurable": {"thread_id": thread_id}}
     run_id = str(uuid.uuid4())
 
-    stream_modes = (
-        body.stream_mode if isinstance(body.stream_mode, list) else [body.stream_mode]
-    )
+    human_text = _extract_human_text(body.input)
 
     async def event_generator():
-        # First event is always metadata
         yield _sse_event("metadata", {"run_id": run_id})
 
         try:
-            # When stream_mode is a list, astream yields (mode, data) tuples
-            async for chunk in graph.astream(
-                body.input,
+            async for chunk in graph.astream( # type: ignore[call-overload]
+                body.input or {},
                 config,
-                stream_mode=stream_modes,
+                stream_mode=["messages", "values", "custom"],
+                version="v2",
+                context=context,
             ):
-                if isinstance(chunk, tuple) and len(chunk) == 2:
-                    mode, data = chunk
-                else:
-                    # Single stream mode — event type is the mode itself
-                    mode = stream_modes[0]
-                    data = chunk
+                event_type = chunk["type"]
+                data = chunk["data"]
 
-                yield _sse_event(mode, data)
+                if event_type == "messages":
+                    msg_chunk, metadata = data
+                    # Only stream text content from the agent node
+                    if not msg_chunk.content or metadata.get("langgraph_node") != "agent":
+                        continue
+
+                elif event_type == "values":
+                    # Only send human + final ai messages (no tool-call ai) and ui
+                    filtered_messages = [
+                        m for m in data.get("messages", [])
+                        if _get_msg_type(m) == "human"
+                        or (_get_msg_type(m) == "ai" and not _has_tool_calls(m))
+                    ]
+                    data = {
+                        "messages": filtered_messages,
+                        "ui": data.get("ui", []),
+                    }
+
+                yield _sse_event(event_type, data)
         except Exception as e:
+            logger.exception(f"Stream failed for thread {thread_id}")
             yield _sse_event("error", {"message": str(e)})
 
-        # Final event
         yield _sse_event("end", None)
+
+        if human_text:
+            await _maybe_set_title(db, thread_id, human_text)
 
     return StreamingResponse(
         event_generator(),
