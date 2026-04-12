@@ -1,6 +1,7 @@
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
@@ -29,6 +30,21 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Tatoh Agent Server", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def ensure_guest_id(request: Request, call_next):
+    response: Response = await call_next(request)
+    if not request.cookies.get("guest_id"):
+        response.set_cookie(
+            "guest_id",
+            str(uuid.uuid4()),
+            httponly=True,
+            samesite="lax",
+            max_age=30 * 24 * 3600,
+        )
+    return response
+
 
 app.include_router(auth_router)
 app.include_router(threads_router)

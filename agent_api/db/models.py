@@ -1,7 +1,7 @@
 import datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, String, Text, Time
+from sqlalchemy import DateTime, ForeignKey, String, Text, Time, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -9,6 +9,19 @@ from db.database import Base
 
 
 SCHEMA = "tatoh"
+
+
+class GuestThread(Base):
+    __tablename__ = "guest_threads"
+    __table_args__ = {"schema": SCHEMA}
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    guest_id: Mapped[str] = mapped_column(String(36), index=True)
+    thread_id: Mapped[str] = mapped_column(String(36), unique=True)
+    title: Mapped[Optional[str]] = mapped_column(String(200), default=None)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Room(Base):

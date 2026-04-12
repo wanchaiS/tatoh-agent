@@ -1,3 +1,5 @@
+**This project backend python is using uv for package management.**
+
 ## Design Context (Cooper / Tatoh)
 
 ### Users

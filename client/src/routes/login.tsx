@@ -2,6 +2,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { login } from '../lib/auth'
+import { useAuthStore } from '../stores/authStore'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -14,7 +15,10 @@ function LoginPage() {
 
   const { mutate, isPending, isError } = useMutation({
     mutationFn: () => login(username, password),
-    onSuccess: () => router.navigate({ to: '/knowledge' }),
+    onSuccess: (data) => {
+      useAuthStore.getState().setUser({ username: data.username })
+      router.navigate({ to: '/knowledge' })
+    },
   })
 
   function handleSubmit(e: React.FormEvent) {

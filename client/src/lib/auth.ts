@@ -1,14 +1,5 @@
-import { apiFetch } from './api'
-
-export const authQueryKey = ['auth', 'me'] as const
-
 export interface UserInfo {
   username: string
-}
-
-export async function fetchMe(): Promise<UserInfo> {
-  const res = await apiFetch('/api/auth/me')
-  return res.json()
 }
 
 export async function login(username: string, password: string): Promise<UserInfo> {

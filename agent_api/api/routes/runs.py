@@ -9,8 +9,11 @@ from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import update
+
 from api.dependencies import get_db, get_graph
 from agent.context.agent_service_provider import AgentServiceProvider
+from db.models import GuestThread
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,27 @@ def _get_msg_type(msg) -> str:
     return ""
 
 
+def _extract_human_text(input_data: dict | None) -> str | None:
+    if not input_data:
+        return None
+    for msg in input_data.get("messages", []):
+        if isinstance(msg, dict) and msg.get("type") == "human":
+            return msg.get("content")
+    return None
+
+
+async def _maybe_set_title(db: AsyncSession, thread_id: str, text: str) -> None:
+    title = text[:80].strip()
+    if not title:
+        return
+    await db.execute(
+        update(GuestThread)
+        .where(GuestThread.thread_id == thread_id, GuestThread.title.is_(None))
+        .values(title=title)
+    )
+    await db.commit()
+
+
 def _has_tool_calls(msg) -> bool:
     if isinstance(msg, BaseMessage):
         return bool(getattr(msg, "tool_calls", None))
@@ -66,6 +90,8 @@ async def stream_run(
     context = AgentServiceProvider(db_session=db)
     config = {"configurable": {"thread_id": thread_id}}
     run_id = str(uuid.uuid4())
+
+    human_text = _extract_human_text(body.input)
 
     async def event_generator():
         yield _sse_event("metadata", {"run_id": run_id})
@@ -105,6 +131,9 @@ async def stream_run(
             yield _sse_event("error", {"message": str(e)})
 
         yield _sse_event("end", None)
+
+        if human_text:
+            await _maybe_set_title(db, thread_id, human_text)
 
     return StreamingResponse(
         event_generator(),

@@ -1,3 +1,5 @@
+import { useAuthStore } from '../stores/authStore'
+
 export class AuthError extends Error {
   constructor() {
     super('Unauthorized')
@@ -13,14 +15,19 @@ export async function apiFetch(url: string, options?: RequestInit): Promise<Resp
       method: 'POST',
       credentials: 'include',
     })
-    if (!refresh.ok) throw new AuthError()
+    if (!refresh.ok) {
+      useAuthStore.getState().clearUser()
+      throw new AuthError()
+    }
 
-    // retry after refreshed 
     const retryAfterRefresh = await fetch(url, { credentials: 'include', ...options })
-    if (retryAfterRefresh.status === 401) throw new AuthError()
+    if (retryAfterRefresh.status === 401) {
+      useAuthStore.getState().clearUser()
+      throw new AuthError()
+    }
     if (!retryAfterRefresh.ok) throw new Error(await retryAfterRefresh.text().catch(() => retryAfterRefresh.statusText))
-   
-      return retryAfterRefresh
+
+    return retryAfterRefresh
   }
 
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))

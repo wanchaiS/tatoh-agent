@@ -5,17 +5,24 @@ import { createRoot } from 'react-dom/client'
 import { AppToaster } from './components/Toaster'
 import './index.css'
 import { AuthError } from './lib/api'
+import { useAuthStore } from './stores/authStore'
 import { routeTree } from './routeTree.gen'
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error) => {
-      if (error instanceof AuthError) router?.navigate({ to: '/login' })
+      if (error instanceof AuthError) {
+        useAuthStore.getState().clearUser()
+        router?.navigate({ to: '/login' })
+      }
     },
   }),
   mutationCache: new MutationCache({
     onError: (error) => {
-      if (error instanceof AuthError) router?.navigate({ to: '/login' })
+      if (error instanceof AuthError) {
+        useAuthStore.getState().clearUser()
+        router?.navigate({ to: '/login' })
+      }
     },
   }),
   defaultOptions: {
