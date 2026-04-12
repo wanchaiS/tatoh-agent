@@ -1,5 +1,6 @@
 import { useStream } from "@langchain/react";
 import { useCallback } from "react";
+import { Link } from "@tanstack/react-router";
 
 import { ChatInput } from "@/components/ChatInput";
 import { Conversation } from "@/components/Conversation";
@@ -27,6 +28,14 @@ export function MainConversationPage() {
 
   return (
     <div className="grid h-[100dvh] grid-cols-1">
+      <div className="absolute top-3 right-4 z-10">
+        <Link
+          to="/knowledge"
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Staff →
+        </Link>
+      </div>
       <main className="grid grid-rows-[1fr_auto] min-h-0 bg-chat-bg">
         <Conversation
           messages={messages}

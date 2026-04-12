@@ -1,14 +1,15 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
+
+from core.config import STATIC_DIR
 from agent.graph import graph
 from agent.clients.pms_client import pms_client
 from db.database import DATABASE_URL, engine
-from core.config import STATIC_DIR
+from api.auth.router import router as auth_router
 from api.rooms.router import router as rooms_router
 from api.rooms.photo_router import router as photo_router
 from api.routes.runs import router as runs_router
@@ -29,14 +30,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Tatoh Agent Server", lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+app.include_router(auth_router)
 app.include_router(threads_router)
 app.include_router(runs_router)
 app.include_router(rooms_router)

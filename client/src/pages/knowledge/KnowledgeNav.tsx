@@ -1,9 +1,19 @@
-import { Link } from '@tanstack/react-router'
-import { BedDouble, Waves, Bus } from 'lucide-react'
+import { Link, useRouter } from '@tanstack/react-router'
+import { BedDouble, Waves, Bus, LogOut } from 'lucide-react'
 import { useLocation } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { authQueryKey, logout } from '../../lib/auth'
 
 export function KnowledgeNav() {
   const location = useLocation()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+
+  async function handleLogout() {
+    await logout()
+    queryClient.removeQueries({ queryKey: authQueryKey })
+    router.navigate({ to: '/login' })
+  }
 
   const navItems = [
     {
@@ -52,6 +62,17 @@ export function KnowledgeNav() {
             {label}
           </Link>
         ))}
+      </div>
+
+      {/* Logout */}
+      <div className="border-t p-2">
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </button>
       </div>
     </nav>
   )

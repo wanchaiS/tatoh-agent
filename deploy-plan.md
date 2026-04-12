@@ -57,12 +57,19 @@ EXPOSE 80
 server {
   listen 80;
 
+  # Serve uploaded photos/static directly from volume — never hits Python
+  location /static {
+    alias /app/static;
+    expires 30d;
+    add_header Cache-Control "public, immutable";
+  }
+
   location / {
     root /usr/share/nginx/html;
     try_files $uri $uri/ /index.html;
   }
 
-  location ~ ^/(api|static|threads|assistants) {
+  location ~ ^/(api|threads|assistants) {
     proxy_pass http://backend:8000;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -78,8 +85,7 @@ services:
     image: postgres:16
     environment:
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5431:5432"
+    # No port exposure in prod — backend reaches db via internal network only
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -105,6 +111,8 @@ services:
     build: ./client
     ports:
       - "80:80"
+    volumes:
+      - static_files:/app/static:ro  # read-only — nginx serves photos directly
     depends_on:
       - backend
 
@@ -121,6 +129,25 @@ volumes:
 - **Static files** (`/app/static`) are persisted via a named volume — this is where uploaded photos live (`STATIC_DIR` in `core/config.py`)
 - **Secrets** (OPENAI_API_KEY, PMS creds, etc.) stay in `agent_api/.env`, loaded via `env_file`
 - `agent_api/docker-compose.yml` can be deleted once the root-level compose is in place
+- **Image serving**: nginx reads `static_files` volume directly via `alias /app/static` — no uvicorn involvement. Both `backend` and `frontend` mount same named volume (backend rw, frontend ro)
+- **Postgres not exposed**: no host port on `db` in prod — internal Docker network only. Re-add `5431:5432` temporarily for local dev/migrations if needed
+
+## Security Checklist (pre-prod)
+
+- [ ] **HTTPS**: no TLS in this plan. Options:
+  - With domain: add Caddy sidecar (auto Let's Encrypt) or certbot
+  - Without domain: HTTP only — acceptable for internal/hotel-LAN use
+- [ ] **CORS**: `allow_origins=["*"]` in `main.py` — tighten to actual frontend origin before exposing to internet
+- [ ] **Postgres password**: change `POSTGRES_PASSWORD: postgres` to strong password, match in `DATABASE_URL`
+- [ ] **No rate limiting**: image upload endpoint unprotected — add nginx `limit_req` if public-facing
+
+## CDN / No-Domain Reality
+
+No domain = no CDN, no HTTPS. Access via droplet IP only.
+
+If CDN needed later: get domain (~$10/yr) → point A record to droplet IP → use DO Spaces CDN ($5/mo, 1TB included) or Cloudflare free tier (proxy + cache).
+
+DO bandwidth: **1TB outbound free/mo per droplet**. Hotel photo traffic almost certainly under limit. No surprise bills expected.
 
 ---
 

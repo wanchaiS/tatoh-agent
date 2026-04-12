@@ -21,7 +21,21 @@ class Settings(BaseSettings):
 
     open_weather_api_key: Optional[str] = Field(default=None, alias="OPEN_WEATHER_API_KEY")
 
+    jwt_secret: str = Field(alias="JWT_SECRET")
+    jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    jwt_expire_minutes: int = Field(default=10, alias="JWT_EXPIRE_MINUTES")
+
+    @property
+    def admin_users(self) -> dict[str, str]:
+        """Return {username: bcrypt_hash} from ADMIN_USER_* env vars."""
+        prefix = "admin_user_"
+        return {
+            key[len(prefix):]: value
+            for key, value in (self.model_extra or {}).items()
+            if key.startswith(prefix)
+        }
+
     # Automatically load from .env file, prioritize OS environment variables
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra='ignore')
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra='allow')
 
 settings = Settings()
