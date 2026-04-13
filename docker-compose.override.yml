@@ -4,10 +4,6 @@ services:
     ports:
       - "80:80"
   
-  # Tell Docker not to start the tunnel when testing locally
-  cloudflared:
-    profiles: ["production"]
-
   # Expose database for local native Python commands (like migrations)
   db:
     ports:
