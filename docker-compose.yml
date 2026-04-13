@@ -3,7 +3,8 @@ services:
     image: postgres:16
     env_file:
       - ./agent_api/.env
-    # No port exposure in prod — backend reaches db via internal network only
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
