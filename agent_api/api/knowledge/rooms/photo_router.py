@@ -8,13 +8,13 @@ from PIL import Image as PILImage
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import STATIC_DIR
+from core.config import STATIC_DIR, STATIC_URL_PREFIX
 from core.photo_helpers import THUMBNAIL_WIDTHS, build_photo_urls
 from api.dependencies import get_db
-from api.rooms.photo_schemas import PhotoReorderItem, PhotoResponse
+from api.knowledge.rooms.photo_schemas import PhotoReorderItem, PhotoResponse
 from db.models import RoomPhoto, Room as RoomModel
 
-router = APIRouter(tags=["room_photos"])
+router = APIRouter(prefix="/api/rooms", tags=["room_photos"])
 
 PHOTOS_DIR = STATIC_DIR / "photos" / "rooms"
 
@@ -35,7 +35,7 @@ def _create_thumbnails(source_path, room_photos_dir, filename):
         print(f"Error creating thumbnails: {e}")
 
 
-@router.get("/api/rooms/{room_id}/photos", response_model=list[PhotoResponse])
+@router.get("/{room_id}/photos", response_model=list[PhotoResponse])
 async def list_photos(room_id: int, db: AsyncSession = Depends(get_db)):
     """List all photos for a room, ordered by sort_order."""
     # Verify room exists
@@ -62,7 +62,7 @@ async def list_photos(room_id: int, db: AsyncSession = Depends(get_db)):
     ]
 
 
-@router.post("/api/rooms/{room_id}/photos", response_model=PhotoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{room_id}/photos", response_model=PhotoResponse, status_code=status.HTTP_201_CREATED)
 async def upload_photo(
     room_id: int,
     file: UploadFile = File(...),
@@ -126,7 +126,7 @@ async def upload_photo(
     )
 
 
-@router.delete("/api/rooms/{room_id}/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{room_id}/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_photo(
     room_id: int,
     photo_id: int,
@@ -157,7 +157,7 @@ async def delete_photo(
     await db.commit()
 
 
-@router.patch("/api/rooms/{room_id}/photos/reorder")
+@router.patch("/{room_id}/photos/reorder")
 async def reorder_photos(
     room_id: int,
     items: list[PhotoReorderItem],

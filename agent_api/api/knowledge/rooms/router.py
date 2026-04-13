@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db
-from api.rooms.schemas import RoomCreate, RoomResponse, RoomUpdate
-from api.rooms.service import RoomManagementService
+from api.knowledge.rooms.schemas import RoomCreate, RoomResponse, RoomUpdate
+from api.knowledge.rooms.service import RoomManagementService
 
 router = APIRouter(prefix="/api/rooms", tags=["rooms"])
 

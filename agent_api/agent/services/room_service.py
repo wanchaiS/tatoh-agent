@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import Room, RoomPhoto
 from db.repositories.room_repository import RoomRepository
-from core.photo_helpers import build_photo_urls
+from core.photo_helpers import build_photo_urls, EmbeddedPhoto
 from sqlalchemy import func
 
 
@@ -21,7 +21,7 @@ class RoomService:
         """Look up a single room by its room_name (e.g. 'S1', 'V2')."""
         return await RoomRepository(self.db).get_by_name(room_name)
 
-    async def get_all_photos_for_rooms(self, room_ids: list[int]) -> dict[int, list[dict]]:
+    async def get_all_photos_for_rooms(self, room_ids: list[int]) -> dict[int, list[EmbeddedPhoto]]:
         """Return all photos (url + thumbnails) per room, ordered by sort_order."""
         if not room_ids:
             return {}
@@ -31,36 +31,7 @@ class RoomService:
             .order_by(RoomPhoto.room_id, RoomPhoto.sort_order)
         )
         photos = result.scalars().all()
-        out: dict[int, list[dict]] = {rid: [] for rid in room_ids}
+        out: dict[int, list[EmbeddedPhoto]] = {rid: [] for rid in room_ids}
         for p in photos:
             out[p.room_id].append(build_photo_urls(p.room_id, p.filename))
         return out
-
-    async def get_first_photo_urls(self, room_ids: list[int]) -> dict[int, str | None]:
-        """Return thumbnail URLs for multiple rooms in a single query."""
-        if not room_ids:
-            return {}
-            
-        # Subquery to get the min sort_order photo per room_id
-        subq = (
-            select(
-                RoomPhoto.room_id,
-                func.min(RoomPhoto.sort_order).label("min_order"),
-            )
-            .where(RoomPhoto.room_id.in_(room_ids))
-            .group_by(RoomPhoto.room_id)
-            .subquery()
-        )
-        result = await self.db.execute(
-            select(RoomPhoto)
-            .join(
-                subq,
-                (RoomPhoto.room_id == subq.c.room_id)
-                & (RoomPhoto.sort_order == subq.c.min_order),
-            )
-        )
-        photos = result.scalars().all()
-        return {
-            p.room_id: f"{STATIC_URL_PREFIX}/photos/rooms/{p.room_id}/thumbnails/{p.filename}"
-            for p in photos
-        }

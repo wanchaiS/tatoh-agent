@@ -28,11 +28,13 @@ class Settings(BaseSettings):
     @property
     def admin_users(self) -> dict[str, str]:
         """Return {username: bcrypt_hash} from ADMIN_USER_* env vars."""
+        import os
         prefix = "admin_user_"
+        env_vars = {**(self.model_extra or {}), **os.environ}
         return {
-            key[len(prefix):]: value
-            for key, value in (self.model_extra or {}).items()
-            if key.startswith(prefix)
+            key[len(prefix):].lower(): value
+            for key, value in env_vars.items()
+            if key.lower().startswith(prefix)
         }
 
     # Automatically load from .env file, prioritize OS environment variables

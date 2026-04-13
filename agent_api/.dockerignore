@@ -1,0 +1,14 @@
+.venv
+.env
+.pytest_cache
+.mypy_cache
+.ruff_cache
+__pycache__
+*.pyc
+*.egg-info
+agent.egg-info
+.DS_Store
+.langgraph_api
+.claude
+static
+docker-compose.yml

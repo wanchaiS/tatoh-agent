@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16
+    env_file:
+      - ./agent_api/.env
+    # No port exposure in prod — backend reaches db via internal network only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+
+  backend:
+    build: ./agent_api
+    env_file:
+      - ./agent_api/.env
+    volumes:
+      - static_files:/app/static
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./client
+    volumes:
+      - static_files:/app/static:ro  # read-only — nginx serves photos directly
+    depends_on:
+      - backend
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - frontend
+
+volumes:
+  pgdata:
+  static_files:

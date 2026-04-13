@@ -8,7 +8,7 @@ from api.dependencies import get_db, get_guest_id
 
 from db.models import GuestThread
 
-router = APIRouter(prefix="/threads")
+router = APIRouter(prefix="/api/threads")
 
 
 @router.post("")

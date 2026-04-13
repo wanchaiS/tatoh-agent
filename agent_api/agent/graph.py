@@ -17,11 +17,7 @@ from agent.tools.exceptions import ToolValidationError
 from agent.context.agent_service_provider import AgentServiceProvider
 from agent.tools.search_available_rooms import RoomAvailabilityResult, search_available_rooms
 from db.models import Room
-                                                                                                                                                                                                                                                                                     
-
-class EmbeddedPhoto(TypedDict):
-    url: str
-    thumbnails: dict[int, str]  # {240: url, 480: url, 960: url}
+from core.photo_helpers import EmbeddedPhoto
 
 
 class RoomCard(TypedDict):
@@ -71,8 +67,7 @@ ROOM_PIN_POSITIONS: dict[int, dict[str, float]] = {
 }
 
 
-@dataclass
-class InternalRoom:
+class InternalRoom(TypedDict):
     id: int
     room_name: str
     room_type: str
@@ -231,8 +226,8 @@ system_prompt = """
 """
 
 def get_prompt(state: State) -> str:
-    room_names = [room.room_name for room in state["rooms"].values()]
-    room_types = [room.room_type for room in state["rooms"].values()]
+    room_names = [room["room_name"] for room in state["rooms"].values()]
+    room_types = [room["room_type"] for room in state["rooms"].values()]
     return system_prompt.format(
         today=datetime.now().strftime("%Y-%m-%d"),
         # phase=get_phase(state),
@@ -298,27 +293,27 @@ def push_pending_search_results_ui_node(state: State):
     for room_name, dates in merged.items():
         room = state["rooms"][room_name]
         room_cards.append({
-            "id": room.id,
-            "room_name": room.room_name,
-            "room_type": room.room_type,
-            "summary": room.summary,
-            "bed_queen": room.bed_queen,
-            "bed_single": room.bed_single,
-            "baths": room.baths,
-            "size": room.size,
-            "price_weekdays": room.price_weekdays,
-            "price_weekends_holidays": room.price_weekends_holidays,
-            "price_ny_songkran": room.price_ny_songkran,
-            "max_guests": room.max_guests,
-            "steps_to_beach": room.steps_to_beach,
-            "sea_view": room.sea_view,
-            "privacy": room.privacy,
-            "steps_to_restaurant": room.steps_to_restaurant,
-            "room_design": room.room_design,
-            "room_newness": room.room_newness,
-            "tags": room.tags,
-            "thumbnail_url": room.thumbnail_url,
-            "photos": room.photos,
+            "id": room["id"],
+            "room_name": room["room_name"],
+            "room_type": room["room_type"],
+            "summary": room["summary"],
+            "bed_queen": room["bed_queen"],
+            "bed_single": room["bed_single"],
+            "baths": room["baths"],
+            "size": room["size"],
+            "price_weekdays": room["price_weekdays"],
+            "price_weekends_holidays": room["price_weekends_holidays"],
+            "price_ny_songkran": room["price_ny_songkran"],
+            "max_guests": room["max_guests"],
+            "steps_to_beach": room["steps_to_beach"],
+            "sea_view": room["sea_view"],
+            "privacy": room["privacy"],
+            "steps_to_restaurant": room["steps_to_restaurant"],
+            "room_design": room["room_design"],
+            "room_newness": room["room_newness"],
+            "tags": room["tags"],
+            "thumbnail_url": room["thumbnail_url"],
+            "photos": room["photos"],
             "date_ranges": dates_to_ranges(dates),
         })
 

@@ -25,14 +25,6 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
-      '/threads': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      },
-      '/assistants': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      },
     },
   },
 })

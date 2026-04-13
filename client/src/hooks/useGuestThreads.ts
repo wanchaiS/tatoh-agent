@@ -14,7 +14,7 @@ export function useGuestThreads() {
   const query = useQuery({
     queryKey: guestThreadsKey,
     queryFn: async (): Promise<GuestThread[]> => {
-      const res = await fetch("/threads", { credentials: "include" });
+      const res = await fetch("/api/threads", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch threads");
       return res.json();
     },

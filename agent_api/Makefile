@@ -64,4 +64,16 @@ help:
 	@echo 'tests                        - run unit tests'
 	@echo 'test TEST_FILE=<test_file>   - run all tests in file'
 	@echo 'test_watch                   - run unit tests in watch mode'
+	@echo 'db-migrate                   - run full database migration using local env URL'
+	@echo 'db-status                    - check database migration status using local env URL'
 
+
+######################
+# DATABASE MANAGEMENT
+######################
+
+db-migrate:
+	uv run python -m scripts.db_manager migrate
+
+db-status:
+	uv run python -m scripts.db_manager status

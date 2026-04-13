@@ -17,7 +17,7 @@ from db.models import GuestThread
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(prefix="/api/threads")
 
 class RunInput(BaseModel):
     input: dict | None = None
@@ -79,7 +79,7 @@ def _has_tool_calls(msg) -> bool:
         return bool(msg.get("tool_calls"))
     return False
 
-@router.post("/threads/{thread_id}/runs/stream")
+@router.post("/{thread_id}/runs/stream")
 async def stream_run(
     thread_id: str,
     body: RunInput,

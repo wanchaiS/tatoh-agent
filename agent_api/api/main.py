@@ -11,16 +11,18 @@ from agent.graph import graph
 from agent.clients.pms_client import pms_client
 from db.database import DATABASE_URL, engine
 from api.auth.router import router as auth_router
-from api.rooms.router import router as rooms_router
-from api.rooms.photo_router import router as photo_router
-from api.routes.runs import router as runs_router
-from api.routes.threads import router as threads_router
+from api.knowledge.rooms.router import router as rooms_router
+from api.knowledge.rooms.photo_router import router as photo_router
+from api.agent.runs import router as runs_router
+from api.agent.threads import router as threads_router
 
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    serde = JsonPlusSerializer(allowed_msgpack_modules=[('agent.graph', 'InternalRoom')])
     async with (
-        AsyncPostgresSaver.from_conn_string(DATABASE_URL) as checkpointer,
+        AsyncPostgresSaver.from_conn_string(DATABASE_URL, serde=serde) as checkpointer,
         pms_client,
     ):
         await checkpointer.setup()

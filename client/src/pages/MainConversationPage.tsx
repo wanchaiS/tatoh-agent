@@ -12,7 +12,7 @@ export function MainConversationPage() {
   const { threadId, setThreadId } = useActiveThread();
   const { threads, refetch } = useGuestThreads();
   const { messages, values, submit, isLoading, switchThread } = useStream({
-    apiUrl: window.location.origin,
+    apiUrl: window.location.origin + "/api",
     assistantId: "agent",
     messagesKey: "messages",
     threadId: threadId ?? undefined,
@@ -43,7 +43,7 @@ export function MainConversationPage() {
   );
 
   const handleNewChat = useCallback(async () => {
-    const res = await fetch("/threads", {
+    const res = await fetch("/api/threads", {
       method: "POST",
       credentials: "include",
     });
