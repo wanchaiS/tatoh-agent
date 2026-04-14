@@ -26,8 +26,12 @@ make db-migrate
 
 ### Database Status
 ```bash
-cd agent_api
 make db-status
+```
+
+### Database Migrate
+```bash
+make db-migrate
 ```
 
 ### Deploy Docker Locally (with .override.yml)
@@ -36,9 +40,28 @@ make db-status
 docker compose up --build -d
 ```
 
+
 ### Deploy Docker in Production
-(Secure via Cloudflare, requires `CLOUDFLARE_TUNNEL_TOKEN` in `.env`)
+
+Cloudflare needs TUNNEL_TOKEN in .env at root
 ```bash
-docker compose up --build -d
+docker compose up -d cloudflared
+```
+
+DB (one time setup)
+Make sure /agent_api/.env contains postgres username and password
+```bash
+docker compose up -d db
+```
+After deployed db, you will need to install the db schema
+```bash
+make db-status # to confirm that db is installed
+make db-migrate
+```
+
+Now you can deploy client and api via make
+```bash
+make push # to build nad push images to DO
+make deploy # to pull latest images and restart services on Droplet (configure ur droplet IP in Makefile)
 ```
 
