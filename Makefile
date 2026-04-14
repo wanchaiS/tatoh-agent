@@ -1,7 +1,7 @@
 # Project Makefile
 # Centralized entry point for development, testing, and deployment
 
-.PHONY: all help login lint format test db-migrate db-status push-backend push-frontend push-all
+.PHONY: all help login lint format test db-migrate db-status push-api push-client push deploy
 
 # Configuration
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
@@ -10,6 +10,9 @@ REGISTRY_URL = registry.digitalocean.com/$(REGISTRY_NAME)
 REPO_NAME = taatoh
 BACKEND_DIR = agent_api
 CLIENT_DIR = client
+DROPLET_IP = [IP_ADDRESS]
+DROPLET_USER = root
+DROPLET_PATH = ~/tatoh-agent
 
 # Default target
 all: help
@@ -28,6 +31,7 @@ help:
 	@echo 'push            - Build and push both images to DOCR'
 	@echo 'push-api        - Build and push backend image to DOCR'
 	@echo 'push-client     - Build and push frontend image to DOCR'
+	@echo 'deploy          - Pull latest images and restart services on Droplet'
 
 # --- AUTHENTICATION ---
 
@@ -82,3 +86,7 @@ push-client:
 	docker push $(REGISTRY_URL)/$(REPO_NAME):client-$(BRANCH)
 
 push: push-api push-client
+
+deploy:
+	@echo "Deploying to Droplet..."
+	ssh $(DROPLET_USER)@$(DROPLET_IP) "cd $(DROPLET_PATH) && git pull && docker compose pull && docker compose up -d"

@@ -17,7 +17,7 @@ services:
   api:
     container_name: taatoh-api
     restart: always
-    build: ./agent_api
+    image: registry.digitalocean.com/aas-solution/taatoh:api-master
     env_file:
       - ./agent_api/.env
     volumes:
@@ -28,7 +28,7 @@ services:
 
   client:
     container_name: taatoh-client
-    build: ./client
+    image: registry.digitalocean.com/aas-solution/taatoh:client-master
     volumes:
       - static_files:/app/static:ro  # read-only — nginx serves photos directly
 
