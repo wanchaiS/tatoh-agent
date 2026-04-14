@@ -11,17 +11,19 @@ uv sync
 
 ### Run langgraph development
 ```bash
-langgraph dev
+cd agent_api
+uv run langgraph dev
 ```
 
-### Run FastApi production
-```
-uv run uvicorn api.main:app --reload
-```### Database Migration
-(Kepp in mind the script will use the DATABASE_URL in .env)
+### Run FastApi development
 ```bash
-cd agent_api
-make db-migrate
+uv run uvicorn api.main:app --reload
+```
+
+### Run client
+```bash
+cd client
+npm run dev
 ```
 
 ### Database Status
