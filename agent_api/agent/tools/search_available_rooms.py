@@ -1,3 +1,4 @@
+from agent.types import InternalRoom
 from langchain_core.tools import tool
 from datetime import datetime, timedelta
 from typing import List, Optional, TypeAlias
@@ -39,7 +40,7 @@ async def search_available_rooms(
     # Prepare services
     room_availability_svc = runtime.context.room_availability
 
-    internal_room_dict = runtime.state["rooms"]
+    internal_room_dict: dict[str, InternalRoom] = runtime.state["rooms"]
 
     # Validate args
     validate_dates(start_date, end_date)
@@ -57,7 +58,7 @@ async def search_available_rooms(
     # Approach 1: specific rooms/types requested — filter and return (no window expansion)
     if requested_rooms or requested_room_types:
         # Build room name -> type lookup dict for filtering
-        room_name_room_type_lookup = {r.room_name.lower(): r.room_type.lower() for r in internal_room_dict.values()}
+        room_name_room_type_lookup = {r["room_name"].lower(): r["room_type"].lower() for r in internal_room_dict.values()}
         filtered = _filter_by_requested_rooms_or_types(
             search_result, 
             requested_rooms, 
@@ -150,22 +151,22 @@ async def search_available_rooms(
 
 ######################## Validators ################################
 
-def _validate_room_types( internal_room_dict: dict[str, Room],room_types: Optional[list[str]] = None):
+def _validate_room_types( internal_room_dict: dict[str, InternalRoom],room_types: Optional[list[str]] = None):
     if not room_types:
         return None
 
     invalid_types = []
     for room_type in room_types:
-        if room_type.lower() not in [room.room_type.lower() for room in internal_room_dict.values()]:
+        if room_type.lower() not in [room["room_type"].lower() for room in internal_room_dict.values()]:
             invalid_types.append(room_type)
     
     if invalid_types:
-        valid = ", ".join(set(room.room_type for room in internal_room_dict.values()))
+        valid = ", ".join(set(room["room_type"] for room in internal_room_dict.values()))
         raise ToolValidationError(f"Room type(s) {', '.join(invalid_types)} not found. Available room types: {valid}")
 
 ######################## Helpers ################################
 
-async def _search_rooms(start_date: str, end_date: str, duration_nights: int, internal_room_dict: dict[str, Room], availability_svc: RoomAvailabilityService) -> RoomAvailabilityResult:
+async def _search_rooms(start_date: str, end_date: str, duration_nights: int, internal_room_dict: dict[str, InternalRoom], availability_svc: RoomAvailabilityService) -> RoomAvailabilityResult:
     """Search rooms from PMS. Returns raw room names + available dates."""
     room_availability = await availability_svc.get_availability(start_date, end_date)
 
@@ -186,7 +187,7 @@ def _parse_date(date_str: str) -> Optional[datetime]:
 
 def _can_accommodate(
     rooms_with_dates: RoomAvailabilityResult,
-    internal_room_dict: dict[str, Room],
+    internal_room_dict: dict[str, InternalRoom],
     guest_no: int,
     effective_start: str,
     effective_end: str,
@@ -210,7 +211,7 @@ def _can_accommodate(
     for room_no, dates in rooms_with_dates.items():
         room = internal_room_dict.get(room_no.lower())
         if room:
-            room_info.append((room.max_guests + 1, dates))
+            room_info.append((room["max_guests"] + 1, dates))
 
     if not room_info:
         return False

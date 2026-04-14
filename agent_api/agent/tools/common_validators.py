@@ -1,3 +1,4 @@
+from agent.types import InternalRoom
 from datetime import datetime
 from typing import Optional
 
@@ -20,7 +21,7 @@ def validate_dates(start_date: str, end_date: str):
     if start_dt < datetime.now().replace(hour=0, minute=0, second=0, microsecond=0):
         raise ToolValidationError(f"start_date is in the past.")
 
-def validate_room_names(internal_room_dict: dict[str, Room], room_names: Optional[list[str]] = None):
+def validate_room_names(internal_room_dict: dict[str, InternalRoom], room_names: Optional[list[str]] = None):
     if not room_names:
         return None
 

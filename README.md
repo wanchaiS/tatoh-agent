@@ -17,6 +17,7 @@ uv run langgraph dev
 
 ### Run FastApi development
 ```bash
+cd agent_api
 uv run uvicorn api.main:app --reload
 ```
 
