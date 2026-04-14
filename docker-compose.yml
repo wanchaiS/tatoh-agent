@@ -1,11 +1,12 @@
 services:
   db:
+    container_name: taatoh-db
     restart: always
     image: postgres:16
     env_file:
       - ./agent_api/.env
     ports:
-      - "5432:5432"
+      - "5431:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -13,7 +14,9 @@ services:
       interval: 5s
       retries: 5
 
-  backend:
+  api:
+    container_name: taatoh-api
+    restart: always
     build: ./agent_api
     env_file:
       - ./agent_api/.env
@@ -23,20 +26,20 @@ services:
       db:
         condition: service_healthy
 
-  frontend:
+  client:
+    container_name: taatoh-client
     build: ./client
     volumes:
       - static_files:/app/static:ro  # read-only — nginx serves photos directly
-    depends_on:
-      - backend
 
   cloudflared:
+    container_name: cloudflared_tunnel
     restart: always
     profiles: ["tunnel"]
     image: cloudflare/cloudflared:latest
     command: tunnel run
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    env_file:
+      - .env
 
 volumes:
   pgdata:
