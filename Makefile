@@ -90,4 +90,4 @@ push: push-api push-client
 
 deploy:
 	@echo "Deploying to Droplet..."
-	ssh $(DROPLET_USER)@$(DROPLET_IP) "cd $(DROPLET_PATH) && git pull && docker compose pull && docker compose up -d"
+	ssh $(DROPLET_USER)@$(DROPLET_IP) "cd $(DROPLET_PATH) && git pull && docker compose pull && docker compose up -d api client"
