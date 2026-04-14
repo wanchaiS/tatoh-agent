@@ -1,6 +1,7 @@
 services:
   db:
     container_name: taatoh-db
+    profiles: ["db"]
     restart: always
     image: postgres:16
     env_file:
