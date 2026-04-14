@@ -10,9 +10,10 @@ REGISTRY_URL = registry.digitalocean.com/$(REGISTRY_NAME)
 REPO_NAME = taatoh
 BACKEND_DIR = agent_api
 CLIENT_DIR = client
-DROPLET_IP = [IP_ADDRESS]
+DROPLET_IP = 152.42.216.147
 DROPLET_USER = root
 DROPLET_PATH = ~/tatoh-agent
+PLATFORM ?= linux/amd64
 
 # Default target
 all: help
@@ -76,13 +77,13 @@ db-status:
 # --- DEPLOYMENT ---
 
 push-api:
-	@echo "Building and pushing backend (API)..."
-	docker build -t $(REGISTRY_URL)/$(REPO_NAME):api-$(BRANCH) ./$(BACKEND_DIR)
+	@echo "Building and pushing backend (API) for $(PLATFORM)..."
+	docker build --platform $(PLATFORM) -t $(REGISTRY_URL)/$(REPO_NAME):api-$(BRANCH) ./$(BACKEND_DIR)
 	docker push $(REGISTRY_URL)/$(REPO_NAME):api-$(BRANCH)
 
 push-client:
-	@echo "Building and pushing frontend (Client)..."
-	docker build -t $(REGISTRY_URL)/$(REPO_NAME):client-$(BRANCH) ./$(CLIENT_DIR)
+	@echo "Building and pushing frontend (Client) for $(PLATFORM)..."
+	docker build --platform $(PLATFORM) -t $(REGISTRY_URL)/$(REPO_NAME):client-$(BRANCH) ./$(CLIENT_DIR)
 	docker push $(REGISTRY_URL)/$(REPO_NAME):client-$(BRANCH)
 
 push: push-api push-client
