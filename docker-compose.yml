@@ -1,5 +1,6 @@
 services:
   db:
+    restart: always
     image: postgres:16
     env_file:
       - ./agent_api/.env
@@ -30,6 +31,7 @@ services:
       - backend
 
   cloudflared:
+    restart: always
     profiles: ["tunnel"]
     image: cloudflare/cloudflared:latest
     command: tunnel run
