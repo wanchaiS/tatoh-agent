@@ -1,5 +1,5 @@
 import { Link, useRouter } from '@tanstack/react-router'
-import { BedDouble, Waves, Bus, LogOut } from 'lucide-react'
+import { BedDouble, Waves, Bus, LogOut, MessageSquare } from 'lucide-react'
 import { useLocation } from '@tanstack/react-router'
 import { logout } from '../../lib/auth'
 import { useAuthStore } from '../../stores/authStore'
@@ -47,6 +47,14 @@ export function KnowledgeNav() {
 
       {/* Navigation items */}
       <div className="flex-1 p-2 space-y-1 overflow-auto">
+        <Link
+          to="/"
+          className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          <MessageSquare className="h-4 w-4" />
+          Chat
+        </Link>
+        <div className="h-px bg-border my-1" />
         {navItems.map(({ icon: Icon, label, to }) => (
           <Link
             key={to}
