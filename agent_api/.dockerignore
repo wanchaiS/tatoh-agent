@@ -1,5 +1,9 @@
 .venv
 .env
+.env.*
+.git
+.gitignore
+tests
 .pytest_cache
 .mypy_cache
 .ruff_cache
