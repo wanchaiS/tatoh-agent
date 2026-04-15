@@ -92,18 +92,6 @@ build: build-api build-client
 
 # --- DEPLOYMENT ---
 
-push-api:
-	@echo "--- Pushing backend (API) for $(PLATFORM) ---"
-	docker build --platform $(PLATFORM) -t $(REGISTRY_URL)/$(REPO_NAME):api-$(BRANCH) ./$(BACKEND_DIR)
-	docker push $(REGISTRY_URL)/$(REPO_NAME):api-$(BRANCH)
-
-push-client:
-	@echo "--- Pushing frontend (Client) for $(PLATFORM) ---"
-	docker build --platform $(PLATFORM) -t $(REGISTRY_URL)/$(REPO_NAME):client-$(BRANCH) ./$(CLIENT_DIR)
-	docker push $(REGISTRY_URL)/$(REPO_NAME):client-$(BRANCH)
-
-push: push-api push-client
-
 deploy:
 	@echo "Deploying to Droplet..."
 	ssh $(DROPLET_USER)@$(DROPLET_IP) "cd $(DROPLET_PATH) && git pull && docker compose pull && docker compose up -d api client"
