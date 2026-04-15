@@ -90,7 +90,7 @@ export function ConversationsPage() {
                 <span className="text-xs text-muted-foreground">Copied</span>
               )}
             </div>
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 min-h-0 grid">
               {stateLoading ? (
                 <p className="px-4 py-6 text-xs text-muted-foreground">Loading messages…</p>
               ) : (
