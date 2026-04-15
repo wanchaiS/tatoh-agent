@@ -14,6 +14,7 @@ import { Route as KnowledgeRouteRouteImport } from './routes/knowledge/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as KnowledgeIndexRouteImport } from './routes/knowledge/index'
 import { Route as KnowledgeRoomsIndexRouteImport } from './routes/knowledge/rooms/index'
+import { Route as KnowledgeConversationsIndexRouteImport } from './routes/knowledge/conversations/index'
 import { Route as KnowledgeBusSchedulesIndexRouteImport } from './routes/knowledge/bus-schedules/index'
 import { Route as KnowledgeBoatSchedulesIndexRouteImport } from './routes/knowledge/boat-schedules/index'
 import { Route as KnowledgeRoomsNewRouteImport } from './routes/knowledge/rooms/new'
@@ -44,6 +45,12 @@ const KnowledgeRoomsIndexRoute = KnowledgeRoomsIndexRouteImport.update({
   path: '/rooms/',
   getParentRoute: () => KnowledgeRouteRoute,
 } as any)
+const KnowledgeConversationsIndexRoute =
+  KnowledgeConversationsIndexRouteImport.update({
+    id: '/conversations/',
+    path: '/conversations/',
+    getParentRoute: () => KnowledgeRouteRoute,
+  } as any)
 const KnowledgeBusSchedulesIndexRoute =
   KnowledgeBusSchedulesIndexRouteImport.update({
     id: '/bus-schedules/',
@@ -76,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/knowledge/rooms/new': typeof KnowledgeRoomsNewRoute
   '/knowledge/boat-schedules/': typeof KnowledgeBoatSchedulesIndexRoute
   '/knowledge/bus-schedules/': typeof KnowledgeBusSchedulesIndexRoute
+  '/knowledge/conversations/': typeof KnowledgeConversationsIndexRoute
   '/knowledge/rooms/': typeof KnowledgeRoomsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -86,6 +94,7 @@ export interface FileRoutesByTo {
   '/knowledge/rooms/new': typeof KnowledgeRoomsNewRoute
   '/knowledge/boat-schedules': typeof KnowledgeBoatSchedulesIndexRoute
   '/knowledge/bus-schedules': typeof KnowledgeBusSchedulesIndexRoute
+  '/knowledge/conversations': typeof KnowledgeConversationsIndexRoute
   '/knowledge/rooms': typeof KnowledgeRoomsIndexRoute
 }
 export interface FileRoutesById {
@@ -98,6 +107,7 @@ export interface FileRoutesById {
   '/knowledge/rooms/new': typeof KnowledgeRoomsNewRoute
   '/knowledge/boat-schedules/': typeof KnowledgeBoatSchedulesIndexRoute
   '/knowledge/bus-schedules/': typeof KnowledgeBusSchedulesIndexRoute
+  '/knowledge/conversations/': typeof KnowledgeConversationsIndexRoute
   '/knowledge/rooms/': typeof KnowledgeRoomsIndexRoute
 }
 export interface FileRouteTypes {
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/knowledge/rooms/new'
     | '/knowledge/boat-schedules/'
     | '/knowledge/bus-schedules/'
+    | '/knowledge/conversations/'
     | '/knowledge/rooms/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/knowledge/rooms/new'
     | '/knowledge/boat-schedules'
     | '/knowledge/bus-schedules'
+    | '/knowledge/conversations'
     | '/knowledge/rooms'
   id:
     | '__root__'
@@ -132,6 +144,7 @@ export interface FileRouteTypes {
     | '/knowledge/rooms/new'
     | '/knowledge/boat-schedules/'
     | '/knowledge/bus-schedules/'
+    | '/knowledge/conversations/'
     | '/knowledge/rooms/'
   fileRoutesById: FileRoutesById
 }
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KnowledgeRoomsIndexRouteImport
       parentRoute: typeof KnowledgeRouteRoute
     }
+    '/knowledge/conversations/': {
+      id: '/knowledge/conversations/'
+      path: '/conversations'
+      fullPath: '/knowledge/conversations/'
+      preLoaderRoute: typeof KnowledgeConversationsIndexRouteImport
+      parentRoute: typeof KnowledgeRouteRoute
+    }
     '/knowledge/bus-schedules/': {
       id: '/knowledge/bus-schedules/'
       path: '/bus-schedules'
@@ -215,6 +235,7 @@ interface KnowledgeRouteRouteChildren {
   KnowledgeRoomsNewRoute: typeof KnowledgeRoomsNewRoute
   KnowledgeBoatSchedulesIndexRoute: typeof KnowledgeBoatSchedulesIndexRoute
   KnowledgeBusSchedulesIndexRoute: typeof KnowledgeBusSchedulesIndexRoute
+  KnowledgeConversationsIndexRoute: typeof KnowledgeConversationsIndexRoute
   KnowledgeRoomsIndexRoute: typeof KnowledgeRoomsIndexRoute
 }
 
@@ -224,6 +245,7 @@ const KnowledgeRouteRouteChildren: KnowledgeRouteRouteChildren = {
   KnowledgeRoomsNewRoute: KnowledgeRoomsNewRoute,
   KnowledgeBoatSchedulesIndexRoute: KnowledgeBoatSchedulesIndexRoute,
   KnowledgeBusSchedulesIndexRoute: KnowledgeBusSchedulesIndexRoute,
+  KnowledgeConversationsIndexRoute: KnowledgeConversationsIndexRoute,
   KnowledgeRoomsIndexRoute: KnowledgeRoomsIndexRoute,
 }
 

@@ -1,7 +1,7 @@
+
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Sequence
 
 from db.models import Room as RoomModel
 

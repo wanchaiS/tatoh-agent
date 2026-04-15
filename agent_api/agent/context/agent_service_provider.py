@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agent.clients.pms_client import pms_client, PmsClient
+from agent.clients.pms_client import PmsClient, pms_client
 from agent.services.room_availability_service import RoomAvailabilityService
 from agent.services.room_service import RoomService
 from db.database import AsyncSessionLocal
+
 
 @dataclass
 class AgentServiceProvider:

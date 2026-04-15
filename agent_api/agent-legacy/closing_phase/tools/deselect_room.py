@@ -1,10 +1,9 @@
+from agent.closing_phase.schemas import RoomSelection
+from agent.services.room_cache import room_cache
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import Command
-
-from agent.services.room_cache import room_cache
-from agent.closing_phase.schemas import ClosingState, RoomSelection
 
 
 @tool

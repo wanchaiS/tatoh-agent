@@ -1,14 +1,14 @@
-from typing import Annotated, List, Literal, Sequence
-from typing_extensions import TypedDict
+from collections.abc import Sequence
+from typing import Annotated, List, Literal
 
+from agent.closing_phase.schemas import RoomSelection
+from agent.common_tools.record_preference import UserPreferences
+from agent.common_tools.record_visiting_info import VisitingInfo
+from agent.search_phase.tools.search_available_rooms import ToolRoomSearchResult
+from agent.services.room_schemas import RoomCard
 from langgraph.graph import MessagesState
 from langgraph.graph.ui import AnyUIMessage, ui_message_reducer
-
-from agent.services.room_schemas import RoomCard
-from agent.closing_phase.schemas import ClosingState, RoomSelection
-from agent.search_phase.tools.search_available_rooms import ToolRoomSearchResult
-from agent.common_tools.record_visiting_info import VisitingInfo
-from agent.common_tools.record_preference import UserPreferences
+from typing_extensions import TypedDict
 
 
 class PendingUIItem(TypedDict):

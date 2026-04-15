@@ -1,9 +1,6 @@
-import json
 from datetime import datetime
 
 from agent.closing_phase.schemas import ClosingState
-from agent.common_tools.record_visiting_info import VisitingInfo
-from agent.common_tools.record_preference import UserPreferences
 from agent.common_tools import (
     deselect_room,
     find_boat_schedules,
@@ -14,16 +11,19 @@ from agent.common_tools import (
     get_kohtao_general_season,
     get_room_info,
     get_rooms_list,
-    record_visiting_info,
     record_preference,
+    record_visiting_info,
     revise_criteria,
     search_available_rooms,
     select_room,
     update_guest_count,
 )
-from agent.services.room_schemas import RoomCard
-from agent.types import GlobalState
+from agent.common_tools.record_preference import UserPreferences
+from agent.common_tools.record_visiting_info import VisitingInfo
 from agent.search_phase.prompts import get_criteria_discovery_prompt
+from agent.services.room_schemas import RoomCard
+
+from agent.types import GlobalState
 
 # ── Shared Q&A tools (available in all phases) ──────────────────────────
 shared_tools = [

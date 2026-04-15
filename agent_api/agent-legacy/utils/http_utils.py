@@ -1,7 +1,8 @@
 import asyncio
 import functools
 import random
-from typing import Any, Awaitable, Callable, Coroutine, Dict, Optional
+from collections.abc import Awaitable, Callable
+from typing import Any, Dict
 
 import httpx
 
@@ -61,7 +62,7 @@ async def make_request(
     client: httpx.AsyncClient,
     method: str,
     url: str,
-    login_cb: Optional[Callable[[], Awaitable[Dict[str, str]]]] = None,
+    login_cb: Callable[[], Awaitable[Dict[str, str]]] | None = None,
     timeout: int = 15,
     **kwargs,
 ) -> Dict[str, Any]:

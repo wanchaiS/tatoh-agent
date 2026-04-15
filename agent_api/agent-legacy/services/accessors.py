@@ -4,12 +4,10 @@ Tools and nodes access services through these accessors so there's a single
 typed boundary between the config dict and consuming code.
 """
 
-from typing_extensions import TypedDict
-
-from langchain_core.runnables import RunnableConfig
-
 from agent.services.room_availability import RoomAvailabilityService
 from agent.utils.pms_client import PmsClient
+from langchain_core.runnables import RunnableConfig
+from typing_extensions import TypedDict
 
 
 class Configurable(TypedDict, total=False):

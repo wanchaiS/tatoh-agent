@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
-from typing import List, Optional
-
-from pydantic import BaseModel
+from typing import List
 
 from agent.services.room_schemas import Rates
+from pydantic import BaseModel
 
 
 class PriceBreakdownItem(BaseModel):
@@ -26,20 +25,22 @@ class ExtraBedInfo(BaseModel):
 class StayPricing(BaseModel):
     total_price: float
     breakdown: List[PriceBreakdownItem]
-    extra_bed: Optional[ExtraBedInfo] = None
+    extra_bed: ExtraBedInfo | None = None
 
 
 class PricingSummary(BaseModel):
     total_price: float
     breakdown_text: str
-    extra_bed_note: Optional[str] = None
+    extra_bed_note: str | None = None
 
-_HOLIDAYS = lambda dt: (
+def _HOLIDAYS(dt):
+    return (
     (dt.month == 12 and dt.day >= 25)
     or (dt.month == 1 and dt.day <= 5)
     or (dt.month == 4 and 10 <= dt.day <= 17)
 )
-_WEEKENDS = lambda dt: dt.weekday() in [4, 5, 6]
+def _WEEKENDS(dt):
+    return dt.weekday() in [4, 5, 6]
 
 
 def calculate_stay_pricing(

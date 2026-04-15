@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 import jwt
@@ -32,7 +32,7 @@ def create_token(username: str) -> str:
     """Sign and return a JWT for the given username."""
     payload = {
         "sub": username,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes),
+        "exp": datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 

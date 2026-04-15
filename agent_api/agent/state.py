@@ -1,4 +1,6 @@
-from typing import Annotated, Dict, Sequence, TypedDict
+from collections.abc import Sequence
+from typing import Annotated, TypedDict
+
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
 from langgraph.graph.ui import AnyUIMessage, ui_message_reducer
@@ -31,4 +33,4 @@ class State(TypedDict):
     pending_render_search_results: Annotated[list[RoomAvailabilityResult], list_reducer]
     pending_search_range: dict[str, str] | None  # {"start": ..., "end": ...}
     ui: Annotated[Sequence[AnyUIMessage], ui_message_reducer]
-    rooms: Dict[str, InternalRoom]  # no reducer, always replace
+    rooms: dict[str, InternalRoom]  # no reducer, always replace

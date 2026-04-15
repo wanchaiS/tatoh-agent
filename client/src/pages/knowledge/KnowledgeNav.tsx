@@ -1,5 +1,5 @@
 import { Link, useRouter } from '@tanstack/react-router'
-import { BedDouble, Waves, Bus, LogOut, MessageSquare } from 'lucide-react'
+import { BedDouble, Waves, Bus, LogOut, MessageSquare, Inbox } from 'lucide-react'
 import { useLocation } from '@tanstack/react-router'
 import { logout } from '../../lib/auth'
 import { useAuthStore } from '../../stores/authStore'
@@ -30,11 +30,20 @@ export function KnowledgeNav() {
       label: 'Bus Schedules',
       to: '/knowledge/bus-schedules' as const,
     },
+    {
+      icon: Inbox,
+      label: 'Conversations',
+      to: '/knowledge/conversations' as const,
+    },
   ]
 
   const isActive = (to: string) => {
     const path = location.pathname
-    return path === to || (to === '/knowledge/rooms' && path.startsWith('/knowledge/rooms'))
+    return (
+      path === to ||
+      (to === '/knowledge/rooms' && path.startsWith('/knowledge/rooms')) ||
+      (to === '/knowledge/conversations' && path.startsWith('/knowledge/conversations'))
+    )
   }
 
   return (

@@ -1,4 +1,3 @@
-from typing import Optional
 
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
@@ -10,18 +9,18 @@ from pydantic import BaseModel
 class VisitingInfo(BaseModel):
     """Guest's visiting facts passively collected from the conversation."""
 
-    guest_count: Optional[int] = None
-    duration_nights: Optional[int] = None
-    guest_arrival_date: Optional[str] = None
-    guest_departure_date: Optional[str] = None
+    guest_count: int | None = None
+    duration_nights: int | None = None
+    guest_arrival_date: str | None = None
+    guest_departure_date: str | None = None
 
 
 @tool
 async def record_visiting_info(
-    guest_count: Optional[int] = None,
-    duration_nights: Optional[int] = None,
-    guest_arrival_date: Optional[str] = None,
-    guest_departure_date: Optional[str] = None,
+    guest_count: int | None = None,
+    duration_nights: int | None = None,
+    guest_arrival_date: str | None = None,
+    guest_departure_date: str | None = None,
     runtime: ToolRuntime = None,
 ) -> Command:
     """Record visiting facts inferred from the conversation. Call this silently whenever

@@ -1,4 +1,5 @@
 from typing import TypedDict
+
 from core.photo_helpers import EmbeddedPhoto
 
 

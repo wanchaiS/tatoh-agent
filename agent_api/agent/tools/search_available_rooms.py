@@ -1,20 +1,19 @@
-from agent.types import InternalRoom
-from langchain_core.tools import tool
 from datetime import datetime, timedelta
-from typing import List, Optional, TypeAlias
+
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
+from langchain_core.tools import tool
 from langgraph.types import Command
 
 from agent.context.agent_service_provider import AgentServiceProvider
 from agent.services.room_availability_service import RoomAvailabilityService
 from agent.tools.common_validators import validate_dates, validate_room_names
 from agent.tools.exceptions import ToolValidationError
-from db.models import Room
+from agent.types import InternalRoom
 
 EXPANSION_STEPS = [0, 3, 5, 7]
 
-RoomAvailabilityResult: TypeAlias = dict[str, set[str]]
+type RoomAvailabilityResult = dict[str, set[str]]
 
 @tool
 async def search_available_rooms(
@@ -22,9 +21,9 @@ async def search_available_rooms(
     start_date: str,
     end_date: str,
     duration_nights: int,
-    guest_no: Optional[int] = None,
-    requested_rooms: Optional[List[str]] = None,
-    requested_room_types: Optional[List[str]] = None,
+    guest_no: int | None = None,
+    requested_rooms: list[str] | None = None,
+    requested_room_types: list[str] | None = None,
 ):
     """
     Search for available rooms based on the given criteria.
@@ -151,7 +150,7 @@ async def search_available_rooms(
 
 ######################## Validators ################################
 
-def _validate_room_types( internal_room_dict: dict[str, InternalRoom],room_types: Optional[list[str]] = None):
+def _validate_room_types( internal_room_dict: dict[str, InternalRoom],room_types: list[str] | None = None):
     if not room_types:
         return None
 
@@ -179,7 +178,7 @@ async def _search_rooms(start_date: str, end_date: str, duration_nights: int, in
     return qualified_rooms
 
 
-def _parse_date(date_str: str) -> Optional[datetime]:
+def _parse_date(date_str: str) -> datetime | None:
     try:
         return datetime.strptime(date_str, "%Y-%m-%d")
     except (ValueError, TypeError):

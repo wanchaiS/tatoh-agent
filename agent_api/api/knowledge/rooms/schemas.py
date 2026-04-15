@@ -1,4 +1,3 @@
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -21,28 +20,28 @@ class RoomCreate(BaseModel):
     steps_to_restaurant: int
     room_design: int
     room_newness: int
-    tags: Optional[str] = None
+    tags: str | None = None
 
 
 class RoomUpdate(BaseModel):
-    room_name: Optional[str] = None
-    room_type: Optional[str] = None
-    summary: Optional[str] = None
-    bed_queen: Optional[int] = None
-    bed_single: Optional[int] = None
-    baths: Optional[int] = None
-    size: Optional[float] = None
-    price_weekdays: Optional[float] = None
-    price_weekends_holidays: Optional[float] = None
-    price_ny_songkran: Optional[float] = None
-    max_guests: Optional[int] = None
-    steps_to_beach: Optional[int] = None
-    sea_view: Optional[int] = None
-    privacy: Optional[int] = None
-    steps_to_restaurant: Optional[int] = None
-    room_design: Optional[int] = None
-    room_newness: Optional[int] = None
-    tags: Optional[str] = None
+    room_name: str | None = None
+    room_type: str | None = None
+    summary: str | None = None
+    bed_queen: int | None = None
+    bed_single: int | None = None
+    baths: int | None = None
+    size: float | None = None
+    price_weekdays: float | None = None
+    price_weekends_holidays: float | None = None
+    price_ny_songkran: float | None = None
+    max_guests: int | None = None
+    steps_to_beach: int | None = None
+    sea_view: int | None = None
+    privacy: int | None = None
+    steps_to_restaurant: int | None = None
+    room_design: int | None = None
+    room_newness: int | None = None
+    tags: str | None = None
 
 
 class RoomResponse(BaseModel):
@@ -64,6 +63,6 @@ class RoomResponse(BaseModel):
     steps_to_restaurant: int
     room_design: int
     room_newness: int
-    tags: Optional[str] = None
+    tags: str | None = None
 
     model_config = {"from_attributes": True}

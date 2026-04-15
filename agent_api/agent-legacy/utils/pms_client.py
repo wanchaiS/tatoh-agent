@@ -3,13 +3,12 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict
-from typing_extensions import NotRequired, TypedDict
+from typing import Any, Dict, NotRequired
 
 import httpx
-from dotenv import load_dotenv
-
 from agent.utils.http_utils import make_request
+from dotenv import load_dotenv
+from typing_extensions import TypedDict
 
 logger = logging.getLogger(__name__)
 

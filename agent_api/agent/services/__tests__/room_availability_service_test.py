@@ -1,6 +1,7 @@
-import pytest
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock
+
+import pytest
 
 from agent.services.room_availability_service import RoomAvailabilityService
 

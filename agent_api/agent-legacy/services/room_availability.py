@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Dict, List, Set, Tuple
-from typing_extensions import TypedDict
 
 from agent.utils.pms_client import PmsRoomAvailability
+from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
     from agent.utils.pms_client import PmsClient

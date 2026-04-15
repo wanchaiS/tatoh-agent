@@ -3,6 +3,7 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import Command
 
+
 @tool
 async def update_guest_count(
     total_guests: int,

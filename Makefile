@@ -1,7 +1,7 @@
 # Project Makefile
 # Centralized entry point for development, testing, and deployment
 
-.PHONY: all help login lint format test db-migrate db-status push-api push-client push deploy
+.PHONY: all help login lint format test db-migrate db-status build-api build-client build push-api push-client push deploy
 
 # Configuration
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
@@ -29,9 +29,12 @@ help:
 	@echo 'db-migrate      - Run database migrations'
 	@echo 'db-status       - Check database migration status'
 	@echo '---- Deployment ----'
-	@echo 'push            - Build and push both images to DOCR'
-	@echo 'push-api        - Build and push backend image to DOCR'
-	@echo 'push-client     - Build and push frontend image to DOCR'
+	@echo 'build           - Compile-check both API and Client'
+	@echo 'build-api       - Lint + type-check backend (ruff + mypy)'
+	@echo 'build-client    - Production build frontend (npm run build)'
+	@echo 'push            - Push both images to DOCR'
+	@echo 'push-api        - Push backend image to DOCR'
+	@echo 'push-client     - Push frontend image to DOCR'
 	@echo 'deploy          - Pull latest images and restart services on Droplet'
 
 # --- AUTHENTICATION ---
@@ -74,15 +77,28 @@ db-migrate:
 db-status:
 	cd $(BACKEND_DIR) && uv run python -m scripts.db_manager status
 
+# --- BUILD (compile checks) ---
+
+build-api:
+	@echo "--- Checking API compiles cleanly ---"
+	cd $(BACKEND_DIR) && uv run ruff check .
+	cd $(BACKEND_DIR) && uv run mypy --strict api agent
+
+build-client:
+	@echo "--- Building Frontend (Client) ---"
+	cd $(CLIENT_DIR) && npm run build
+
+build: build-api build-client
+
 # --- DEPLOYMENT ---
 
 push-api:
-	@echo "Building and pushing backend (API) for $(PLATFORM)..."
+	@echo "--- Pushing backend (API) for $(PLATFORM) ---"
 	docker build --platform $(PLATFORM) -t $(REGISTRY_URL)/$(REPO_NAME):api-$(BRANCH) ./$(BACKEND_DIR)
 	docker push $(REGISTRY_URL)/$(REPO_NAME):api-$(BRANCH)
 
 push-client:
-	@echo "Building and pushing frontend (Client) for $(PLATFORM)..."
+	@echo "--- Pushing frontend (Client) for $(PLATFORM) ---"
 	docker build --platform $(PLATFORM) -t $(REGISTRY_URL)/$(REPO_NAME):client-$(BRANCH) ./$(CLIENT_DIR)
 	docker push $(REGISTRY_URL)/$(REPO_NAME):client-$(BRANCH)
 

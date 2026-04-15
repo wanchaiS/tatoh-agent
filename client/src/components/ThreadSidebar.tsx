@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { BookOpen, LogOut, Menu, Plus } from "lucide-react";
+import { BookOpen, LogIn, LogOut, Menu, Plus } from "lucide-react";
 import { useState } from "react";
 
 import type { GuestThread } from "@/hooks/useGuestThreads";
@@ -86,21 +86,34 @@ function SidebarContent({
       </div>
 
         <div className="border-t border-sidebar-border p-2 space-y-0.5">
-          <Link
-            to="/knowledge"
-            onClick={() => onItemClick?.()}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent"
-          >
-            <BookOpen className="h-4 w-4" />
-            Knowledge
-          </Link>
-          {user && <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </button>}
+          {!user ? (
+            <Link
+              to="/login"
+              onClick={() => onItemClick?.()}
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent"
+            >
+              <LogIn className="h-4 w-4" />
+              Login
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/knowledge"
+                onClick={() => onItemClick?.()}
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent"
+              >
+                <BookOpen className="h-4 w-4" />
+                Knowledge
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
+            </>
+          )}
         </div>
     </div>
   );

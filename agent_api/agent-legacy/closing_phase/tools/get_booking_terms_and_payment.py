@@ -1,10 +1,10 @@
+from agent.closing_phase.schemas import ClosingState
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import Command
 from sqlalchemy import select
 
-from agent.closing_phase.schemas import ClosingState
 from db.database import AsyncSessionLocal
 from db.models import KnowledgeDocument
 

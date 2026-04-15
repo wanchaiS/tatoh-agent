@@ -1,17 +1,18 @@
-from datetime import datetime, timedelta
-from typing import List, Optional
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import List
+
+from agent.services.accessors import room_availability_svc_from
+from agent.services.room_availability import RoomAvailabilityService
+from agent.services.room_cache import room_cache
+from agent.services.room_schemas import DateRange
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langgraph.types import Command
 
-from agent.services.accessors import room_availability_svc_from
-from agent.services.room_cache import room_cache
-from agent.services.room_schemas import DateRange
 from agent.services.room_service import room_service
-from agent.services.room_availability import RoomAvailabilityService
 
 
 def build_date_ranges(dates: List[str], duration: int) -> List[DateRange]:
@@ -60,9 +61,9 @@ async def search_available_rooms(
     start_date: str,
     end_date: str,
     duration_nights: int,
-    guest_no: Optional[int] = None,
-    requested_rooms: Optional[List[str]] = None,
-    requested_room_types: Optional[List[str]] = None,
+    guest_no: int | None = None,
+    requested_rooms: List[str] | None = None,
+    requested_room_types: List[str] | None = None,
     runtime: ToolRuntime = None,
     config: RunnableConfig = None,
 ) -> Command:
@@ -264,7 +265,7 @@ def _tool_error(msg: str, tool_call_id: str) -> Command:
 
 # ── Helpers ────────────────────────────
 
-def _parse_date(date_str: str) -> Optional[datetime]:
+def _parse_date(date_str: str) -> datetime | None:
     try:
         return datetime.strptime(date_str, "%Y-%m-%d")
     except (ValueError, TypeError):
@@ -286,13 +287,13 @@ def _validate_dates(start_date: str, end_date: str) -> str:
     start_dt = _parse_date(start_date)
     end_dt = _parse_date(end_date)
     if not start_dt:
-        return f"Invalid start_date format. Must be YYYY-MM-DD."
+        return "Invalid start_date format. Must be YYYY-MM-DD."
     if not end_dt:
-        return f"Invalid end_date format. Must be YYYY-MM-DD."
+        return "Invalid end_date format. Must be YYYY-MM-DD."
     if end_dt <= start_dt:
-        return f"end_date must be after start_date."
+        return "end_date must be after start_date."
     if start_dt < datetime.now().replace(hour=0, minute=0, second=0, microsecond=0):
-        return f"start_date is in the past."
+        return "start_date is in the past."
     return None
 
 

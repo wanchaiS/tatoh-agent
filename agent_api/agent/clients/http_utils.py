@@ -1,9 +1,13 @@
 import asyncio
 import functools
+import logging
 import random
-from typing import Any, Awaitable, Callable, Coroutine, Dict, Optional
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 def retry_with_jitter(
@@ -32,8 +36,8 @@ def retry_with_jitter(
                     delay = min(base_delay * (2**attempt), max_delay)
                     sleep_time = random.uniform(0, delay)
 
-                    print(
-                        f"Attempt {attempt + 1} failed: {e}. Retrying in {sleep_time:.2f}s..."
+                    logger.debug(
+                        "Attempt %d failed: %s. Retrying in %.2fs...", attempt + 1, e, sleep_time
                     )
                     await asyncio.sleep(sleep_time)
                 except httpx.RequestError as e:
@@ -45,8 +49,8 @@ def retry_with_jitter(
                     delay = min(base_delay * (2**attempt), max_delay)
                     sleep_time = random.uniform(0, delay)
 
-                    print(
-                        f"Attempt {attempt + 1} failed: {e}. Retrying in {sleep_time:.2f}s..."
+                    logger.debug(
+                        "Attempt %d failed: %s. Retrying in %.2fs...", attempt + 1, e, sleep_time
                     )
                     await asyncio.sleep(sleep_time)
             assert last_exception is not None
@@ -61,10 +65,10 @@ async def make_request(
     client: httpx.AsyncClient,
     method: str,
     url: str,
-    login_cb: Optional[Callable[[], Awaitable[Dict[str, str]]]] = None,
+    login_cb: Callable[[], Awaitable[dict[str, str]]] | None = None,
     timeout: int = 15,
     **kwargs,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Functional helper to make async HTTP requests with retry logic and auto-auth."""
 
     @retry_with_jitter(max_tries=3)
@@ -80,7 +84,7 @@ async def make_request(
     except httpx.HTTPStatusError as e:
         # Handle Auth error
         if e.response.status_code in [401, 403] and login_cb:
-            print(f"Auth error ({e.response.status_code}). Calling login callback...")
+            logger.debug("Auth error (%d). Calling login callback...", e.response.status_code)
             
             # An auth callback return new headers
             new_headers = await login_cb()

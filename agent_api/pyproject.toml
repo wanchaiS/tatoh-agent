@@ -67,22 +67,18 @@ lint.select = [
     "E",    # pycodestyle
     "F",    # pyflakes
     "I",    # isort
-    "D",    # pydocstyle
-    "D401", # First line should be in imperative mood
     "T201",
     "UP",
 ]
 lint.ignore = [
     "UP006",
     "UP007",
-    "D417",
     "E501",
 ]
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D", "UP"]
+"tests/*" = ["UP"]
 "scripts/*" = ["T201"]
-[tool.ruff.lint.pydocstyle]
-convention = "google"
+"agent-legacy/*" = ["F", "T201", "UP"]
 
 [dependency-groups]
 dev = [

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.database import AsyncSessionLocal
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db() -> AsyncGenerator[AsyncSession]:
     async with AsyncSessionLocal() as db:
         yield db
 

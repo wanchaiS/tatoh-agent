@@ -1,7 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
-from typing import Optional
 from pathlib import Path
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolves to agent_api/static/ regardless of CWD
 STATIC_DIR = Path(__file__).parent.parent / "static"
@@ -17,9 +17,9 @@ class Settings(BaseSettings):
     pms_password: str = Field(alias="PMS_PASSWORD")
     
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
-    openai_base_url: Optional[str] = Field(default=None, alias="OPENAI_BASE_URL")
+    openai_base_url: str | None = Field(default=None, alias="OPENAI_BASE_URL")
 
-    open_weather_api_key: Optional[str] = Field(default=None, alias="OPEN_WEATHER_API_KEY")
+    open_weather_api_key: str | None = Field(default=None, alias="OPEN_WEATHER_API_KEY")
 
     jwt_secret: str = Field(alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")

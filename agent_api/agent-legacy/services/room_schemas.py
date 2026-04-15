@@ -47,7 +47,7 @@ class RoomCard(BaseModel):
     availability: RoomAvailability | None = None
 
     @classmethod
-    def from_db(cls, db_room, thumbnail_url: str | None = None) -> "RoomCard":
+    def from_db(cls, db_room, thumbnail_url: str | None = None) -> RoomCard:
         """Convert a SQLAlchemy Room model to a RoomCard."""
         raw_tags = getattr(db_room, "tags", None)
         if isinstance(raw_tags, str):

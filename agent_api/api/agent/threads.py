@@ -5,7 +5,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db, get_guest_id
-
 from db.models import GuestThread
 
 router = APIRouter(prefix="/api/threads")
@@ -44,7 +43,7 @@ async def list_threads(
 
 
 @router.get("/{thread_id}/state")
-async def get_thread_state(thread_id: str, request: Request):
+async def get_thread_state(thread_id: str, request: Request, _: str = Depends(get_guest_id)):
     graph = request.app.state.graph
     config = {"configurable": {"thread_id": thread_id}}
     state = await graph.aget_state(config)

@@ -1,11 +1,14 @@
-import sys
 import asyncio
+import sys
+
 from alembic.config import Config
-from alembic import command
 from sqlalchemy import text
+
+from alembic import command
 
 # Import the pre-configured async engine from your architecture
 from db.database import engine
+
 
 async def setup_schema():
     """Ensure the target schema exists before Alembic tries to use it."""

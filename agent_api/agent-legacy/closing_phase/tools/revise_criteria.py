@@ -3,8 +3,6 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import Command
 
-from agent.closing_phase.schemas import ClosingState
-
 
 @tool
 def revise_criteria(runtime: ToolRuntime = None):

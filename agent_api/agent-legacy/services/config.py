@@ -10,10 +10,9 @@ Central place that wires services into LangGraph's RunnableConfig. Two paths:
 
 from typing import TYPE_CHECKING
 
+from agent.services.scoped import build_room_availability_svc
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
-
-from agent.services.scoped import build_room_availability_svc
 
 if TYPE_CHECKING:
     pass

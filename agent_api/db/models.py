@@ -1,12 +1,10 @@
 import datetime
-from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, Time, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.database import Base
-
 
 SCHEMA = "tatoh"
 
@@ -18,7 +16,7 @@ class GuestThread(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     guest_id: Mapped[str] = mapped_column(String(36), index=True)
     thread_id: Mapped[str] = mapped_column(String(36), unique=True)
-    title: Mapped[Optional[str]] = mapped_column(String(200), default=None)
+    title: Mapped[str | None] = mapped_column(String(200), default=None)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -46,7 +44,7 @@ class Room(Base):
     steps_to_restaurant: Mapped[int]
     room_design: Mapped[int]
     room_newness: Mapped[int]
-    tags: Mapped[Optional[str]] = mapped_column(Text, default=None)
+    tags: Mapped[str | None] = mapped_column(Text, default=None)
 
 
 class RoomPhoto(Base):
@@ -96,4 +94,4 @@ class KnowledgeDocument(Base):
     key: Mapped[str] = mapped_column(String(100), unique=True)
     title: Mapped[str] = mapped_column(String(200))
     content: Mapped[str] = mapped_column(Text)
-    image_urls: Mapped[Optional[list[str]]] = mapped_column(ARRAY(Text), default=None)
+    image_urls: Mapped[list[str] | None] = mapped_column(ARRAY(Text), default=None)

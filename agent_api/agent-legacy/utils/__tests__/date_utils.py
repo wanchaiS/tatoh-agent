@@ -1,5 +1,4 @@
 import pytest
-
 from agent.utils.date_utils import format_date_ranges
 
 

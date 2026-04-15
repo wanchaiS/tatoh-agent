@@ -1,5 +1,6 @@
-from core.config import STATIC_URL_PREFIX
 from typing import TypedDict
+
+from core.config import STATIC_URL_PREFIX
 
 THUMBNAIL_WIDTHS = (240, 480, 960)
 

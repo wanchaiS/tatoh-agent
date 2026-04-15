@@ -24,8 +24,9 @@ _model_with_tools = None
 def get_model_with_tools():
     global _model_with_tools
     if _model_with_tools is None:
-        from core.config import settings
         from langchain_openai import ChatOpenAI
+
+        from core.config import settings
 
         model = ChatOpenAI(
             model="openai/gpt-5.1-instant",

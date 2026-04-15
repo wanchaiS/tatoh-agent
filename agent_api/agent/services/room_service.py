@@ -1,10 +1,9 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.photo_helpers import EmbeddedPhoto, build_photo_urls
 from db.models import Room, RoomPhoto
 from db.repositories.room_repository import RoomRepository
-from core.photo_helpers import build_photo_urls, EmbeddedPhoto
-from sqlalchemy import func
 
 
 class RoomService:

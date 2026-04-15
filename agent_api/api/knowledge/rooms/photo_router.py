@@ -1,5 +1,6 @@
 """Photo management router for rooms."""
 
+import logging
 import os
 import uuid
 
@@ -8,11 +9,14 @@ from PIL import Image as PILImage
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import STATIC_DIR, STATIC_URL_PREFIX
-from core.photo_helpers import THUMBNAIL_WIDTHS, build_photo_urls
 from api.dependencies import get_db
 from api.knowledge.rooms.photo_schemas import PhotoReorderItem, PhotoResponse
-from db.models import RoomPhoto, Room as RoomModel
+from core.config import STATIC_DIR, STATIC_URL_PREFIX
+from core.photo_helpers import THUMBNAIL_WIDTHS, build_photo_urls
+from db.models import Room as RoomModel
+from db.models import RoomPhoto
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/rooms", tags=["room_photos"])
 
@@ -32,7 +36,7 @@ def _create_thumbnails(source_path, room_photos_dir, filename):
                 resized.thumbnail((width, 10000))
                 resized.save(dest_dir / filename, "JPEG", quality=85)
     except Exception as e:
-        print(f"Error creating thumbnails: {e}")
+        logger.error("Error creating thumbnails: %s", e)
 
 
 @router.get("/{room_id}/photos", response_model=list[PhotoResponse])

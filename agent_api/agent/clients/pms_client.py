@@ -1,11 +1,13 @@
 import asyncio
 import logging
-import httpx
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict,NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
+
+import httpx
 
 from core.config import settings
+
 from .http_utils import make_request
 
 logger = logging.getLogger(__name__)
@@ -80,7 +82,7 @@ class PmsClient:
         self.token_expiry: float = 0
         self._lock = asyncio.Lock()
 
-    async def fetch_room_availability_window(self, start_date: str) -> Dict[str, Any]:
+    async def fetch_room_availability_window(self, start_date: str) -> dict[str, Any]:
         """Fetch a single 14-day window of room availability from the PMS."""
         try:
             url = f"{self.base_url}/calendar/detail/{start_date}"
@@ -101,7 +103,7 @@ class PmsClient:
             logger.error(f"Unexpected error during room availability search: {e}")
             raise
 
-    async def _login(self) -> Dict[str, str]:
+    async def _login(self) -> dict[str, str]:
         """Authenticate with the PMS"""
         if self.token and time.time() < self.token_expiry - 60:
             return {"Authorization": f"Bearer {self.token}", "Access-Token": self.token}
@@ -130,7 +132,7 @@ class PmsClient:
 
             return {"Authorization": f"Bearer {self.token}", "Access-Token": self.token}
 
-    def _parse_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_response(self, response: dict[str, Any]) -> dict[str, Any]:
         received_version = response.get("version", "1.0")
         try:
             start_dt = datetime.strptime(response["startDate"], "%Y-%m-%d")

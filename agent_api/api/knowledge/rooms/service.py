@@ -1,9 +1,9 @@
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.knowledge.rooms.schemas import RoomCreate, RoomUpdate
 from db.models import Room as RoomModel
 from db.repositories.room_repository import RoomRepository
-from api.knowledge.rooms.schemas import RoomCreate, RoomUpdate
 
 
 class RoomManagementService:

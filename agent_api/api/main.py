@@ -4,19 +4,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
-
-from core.config import STATIC_DIR
-from agent.graph import graph
 from agent.clients.pms_client import pms_client
-from db.database import DATABASE_URL, engine
-from api.auth.router import router as auth_router
-from api.knowledge.rooms.router import router as rooms_router
-from api.knowledge.rooms.photo_router import router as photo_router
+from agent.graph import graph
 from api.agent.runs import router as runs_router
 from api.agent.threads import router as threads_router
+from api.auth.router import router as auth_router
+from api.knowledge.conversations.router import router as conversations_router
+from api.knowledge.rooms.photo_router import router as photo_router
+from api.knowledge.rooms.router import router as rooms_router
+from core.config import STATIC_DIR
+from db.database import DATABASE_URL, engine
 
-from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -49,6 +49,7 @@ async def ensure_guest_id(request: Request, call_next):
 
 
 app.include_router(auth_router)
+app.include_router(conversations_router)
 app.include_router(threads_router)
 app.include_router(runs_router)
 app.include_router(rooms_router)

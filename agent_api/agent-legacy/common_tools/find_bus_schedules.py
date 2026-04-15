@@ -1,8 +1,7 @@
 from typing import Dict, List, Literal
 
-from langchain.tools import tool
-
 from agent.services.schedule_service import schedule_service
+from langchain.tools import tool
 
 Location = Literal[
     "bangkok",

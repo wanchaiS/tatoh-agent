@@ -1,10 +1,10 @@
-from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import ToolNode
-
 from agent.agent_node import agent_node
 from agent.prompts import PHASE_TOOLS
 from agent.search_result_aggregator import search_result_aggregator
 from agent.services.config import singleton_config, wrap_with_scoped_filler
+from langgraph.graph import END, START, StateGraph
+from langgraph.prebuilt import ToolNode
+
 from agent.types import GlobalState
 
 

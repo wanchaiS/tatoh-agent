@@ -1,8 +1,7 @@
-from typing import List, Optional
-
-from pydantic import BaseModel, Field
+from typing import List
 
 from agent.pricing import StayPricing
+from pydantic import BaseModel, Field
 
 
 class RoomSelection(BaseModel):

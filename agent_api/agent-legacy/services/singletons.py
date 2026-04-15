@@ -5,7 +5,6 @@ Used by both FastAPI (explicit lifespan shutdown) and langgraph dev (process exi
 """
 
 import httpx
-
 from agent.utils.pms_client import PmsClient
 
 _http_client: httpx.AsyncClient | None = None

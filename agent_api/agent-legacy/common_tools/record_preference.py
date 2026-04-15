@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal
 
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
@@ -13,18 +13,18 @@ GroupType = Literal["couple", "family", "friends", "solo"]
 class UserPreferences(BaseModel):
     """Soft preferences passively collected from the conversation."""
 
-    location_preference: Optional[LocationPreference] = None
-    privacy_preferred: Optional[bool] = None
-    group_type: Optional[GroupType] = None
-    mobility_limited: Optional[bool] = None
+    location_preference: LocationPreference | None = None
+    privacy_preferred: bool | None = None
+    group_type: GroupType | None = None
+    mobility_limited: bool | None = None
 
 
 @tool
 async def record_preference(
-    location_preference: Optional[LocationPreference] = None,
-    privacy_preferred: Optional[bool] = None,
-    group_type: Optional[GroupType] = None,
-    mobility_limited: Optional[bool] = None,
+    location_preference: LocationPreference | None = None,
+    privacy_preferred: bool | None = None,
+    group_type: GroupType | None = None,
+    mobility_limited: bool | None = None,
     runtime: ToolRuntime = None,
 ) -> Command:
     """Record soft user preferences inferred from the conversation. Call this silently whenever

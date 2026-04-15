@@ -1,13 +1,11 @@
-from datetime import datetime
 
+from agent.closing_phase.schemas import RoomSelection
+from agent.pricing import calculate_stay_pricing
+from agent.services.room_schemas import RoomCard
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import Command
-
-from agent.pricing import calculate_stay_pricing
-from agent.services.room_schemas import RoomCard
-from agent.closing_phase.schemas import RoomSelection
 
 
 def _find_room(room_name: str, room_cards: list[RoomCard]) -> RoomCard | None:

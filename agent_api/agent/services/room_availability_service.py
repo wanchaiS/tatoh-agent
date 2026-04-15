@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Dict, List, Set, Tuple,TypedDict
+from typing import TypedDict
 
 from agent.clients.pms_client import pms_client
 
@@ -12,7 +12,7 @@ class InternalRoomAvailabilityData(TypedDict):
     room_no: str          # Room number, lowercased (e.g. "s5")
     room_type_id: str     # PMS internal room type ID
     room_type_name: str   # Human-readable room type (e.g. "Sea View Bungalow")
-    dates: Set[str]       # Available dates as YYYY-MM-DD strings (mutable set for merging)
+    dates: set[str]       # Available dates as YYYY-MM-DD strings (mutable set for merging)
 
 class RoomAvailabilityService:
     """Per-turn availability service.
@@ -26,12 +26,12 @@ class RoomAvailabilityService:
     def __init__(self) -> None:
         self.pms_client = pms_client
         # List of [start, end) tuples covering what we have fetched from PMS
-        self.covered_ranges: List[Tuple[datetime, datetime]] = []
-        self.rooms_availability: Dict[str, InternalRoomAvailabilityData] = {}
+        self.covered_ranges: list[tuple[datetime, datetime]] = []
+        self.rooms_availability: dict[str, InternalRoomAvailabilityData] = {}
 
     async def get_availability(
         self, search_start: str, search_end: str
-    ) -> Dict[str, InternalRoomAvailabilityData]:
+    ) -> dict[str, InternalRoomAvailabilityData]:
         """
         Dynamically fetches missing chunks of availability to cover [search_start, search_end)
         and returns the strictly clipped availability for that exact window.
@@ -84,7 +84,7 @@ class RoomAvailabilityService:
             (search_start_dt + timedelta(days=i)).strftime("%Y-%m-%d")
             for i in range((search_end_dt - search_start_dt).days)
         }
-        result_rooms: Dict[str, InternalRoomAvailabilityData] = {}
+        result_rooms: dict[str, InternalRoomAvailabilityData] = {}
         for room_no, room_info in self.rooms_availability.items():
             filtered_dates = room_info["dates"].intersection(valid_dates)
             result_rooms[room_no] = {
@@ -103,13 +103,13 @@ class RoomAvailabilityService:
         check_out_dt = datetime.strptime(check_out, "%Y-%m-%d")
 
         # Build the set of required dates: [check_in, check_out)
-        required_dates: Set[str] = {
+        required_dates: set[str] = {
             (check_in_dt + timedelta(days=i)).strftime("%Y-%m-%d")
             for i in range((check_out_dt - check_in_dt).days)
         }
 
         # Fetch fresh PMS data in 14-day windows to cover the full stay
-        available_dates: Set[str] = set()
+        available_dates: set[str] = set()
         cursor = check_in_dt
         while cursor < check_out_dt:
             pms_data = await self.pms_client.fetch_room_availability_window(

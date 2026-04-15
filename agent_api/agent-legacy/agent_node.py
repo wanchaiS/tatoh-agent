@@ -1,9 +1,9 @@
+from agent.prompts import get_prompt_and_tools
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langgraph.graph.ui import push_ui_message
 
-from agent.prompts import get_prompt_and_tools
 from agent.types import GlobalState
 
 model = ChatOpenAI(model="openai/gpt-5.1-instant", temperature=0, streaming=True)

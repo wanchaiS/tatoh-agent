@@ -1,6 +1,5 @@
-from langchain.tools import tool
-
 from agent.services.knowledge_service import knowledge_service
+from langchain.tools import tool
 
 
 @tool
