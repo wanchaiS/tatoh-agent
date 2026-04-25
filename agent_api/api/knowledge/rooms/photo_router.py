@@ -66,7 +66,11 @@ async def list_photos(room_id: int, db: AsyncSession = Depends(get_db)):
     ]
 
 
-@router.post("/{room_id}/photos", response_model=PhotoResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{room_id}/photos",
+    response_model=PhotoResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def upload_photo(
     room_id: int,
     file: UploadFile = File(...),
@@ -138,7 +142,9 @@ async def delete_photo(
 ):
     """Delete a photo."""
     result = await db.execute(
-        select(RoomPhoto).where(RoomPhoto.id == photo_id).where(RoomPhoto.room_id == room_id)
+        select(RoomPhoto)
+        .where(RoomPhoto.id == photo_id)
+        .where(RoomPhoto.room_id == room_id)
     )
     photo = result.scalars().first()
 
@@ -152,7 +158,9 @@ async def delete_photo(
 
     # Delete all thumbnail sizes
     for w in THUMBNAIL_WIDTHS:
-        thumbnail_path = PHOTOS_DIR / str(room_id) / "thumbnails" / str(w) / photo.filename
+        thumbnail_path = (
+            PHOTOS_DIR / str(room_id) / "thumbnails" / str(w) / photo.filename
+        )
         if thumbnail_path.exists():
             thumbnail_path.unlink()
 

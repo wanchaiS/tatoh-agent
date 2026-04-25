@@ -17,36 +17,42 @@ logger = logging.getLogger(__name__)
 # These mirror the JSON shape returned by GET /calendar/detail/{date}
 class _PmsRawRoom(TypedDict):
     """A room entry from the PMS roomList array."""
-    id: str            # PMS internal room ID
-    roomNo: str        # Display room number (e.g. "S5", "V2")
-    roomTypeId: str    # FK to room type
+
+    id: str  # PMS internal room ID
+    roomNo: str  # Display room number (e.g. "S5", "V2")
+    roomTypeId: str  # FK to room type
 
 
 class _PmsRawRoomType(TypedDict):
     """A room type entry from the PMS roomTypeList array."""
-    id: str     # PMS internal room type ID
-    name: str   # Human-readable name (e.g. "Sea View Bungalow")
+
+    id: str  # PMS internal room type ID
+    name: str  # Human-readable name (e.g. "Sea View Bungalow")
 
 
 class _PmsRawReservation(TypedDict):
     """A single reservation entry from the PMS reservationRoomList."""
-    checkIn: str    # Check-in date, YYYY-MM-DD
-    checkOut: str   # Check-out date, YYYY-MM-DD
+
+    checkIn: str  # Check-in date, YYYY-MM-DD
+    checkOut: str  # Check-out date, YYYY-MM-DD
 
 
 class _PmsRawResponse(TypedDict):
     """Raw JSON response from GET /calendar/detail/{date}."""
-    startDate: str   # Window start, YYYY-MM-DD
-    endDate: str     # Window end, YYYY-MM-DD
+
+    startDate: str  # Window start, YYYY-MM-DD
+    endDate: str  # Window end, YYYY-MM-DD
     roomList: list[_PmsRawRoom]
     roomTypeList: list[_PmsRawRoomType]
     # Nested: roomTypeId → roomId → dateKey → list of reservations
     reservationRoomList: dict[str, dict[str, dict[str, list[_PmsRawReservation]]]]
     version: NotRequired[str]
 
+
 # ── Internal Parsing Type ─────────────────────────────────────────────────────
 class _PmsRoomAvailabilityInternal(TypedDict):
     """Internal representation during parsing — dates as a set for O(1) discard."""
+
     room_id: str
     room_no: str
     room_type_id: str
@@ -55,6 +61,7 @@ class _PmsRoomAvailabilityInternal(TypedDict):
 
 
 EXPECTED_PMS_VERSION = "1.62"
+
 
 class PmsClient:
     """External PMS API client"""
@@ -86,17 +93,20 @@ class PmsClient:
         """Fetch a single 14-day window of room availability from the PMS."""
         try:
             url = f"{self.base_url}/calendar/detail/{start_date}"
-            
+
             headers = {}
             if self.token:
-                headers = {"Authorization": f"Bearer {self.token}", "Access-Token": self.token}
-                
+                headers = {
+                    "Authorization": f"Bearer {self.token}",
+                    "Access-Token": self.token,
+                }
+
             api_response = await make_request(
-                client=self.http_client, 
-                method="GET", 
-                url=url, 
+                client=self.http_client,
+                method="GET",
+                url=url,
                 headers=headers,
-                login_cb=self._login
+                login_cb=self._login,
             )
             return self._parse_response(api_response)
         except Exception as e:
@@ -110,7 +120,10 @@ class PmsClient:
 
         async with self._lock:
             if self.token and time.time() < self.token_expiry - 60:
-                return {"Authorization": f"Bearer {self.token}", "Access-Token": self.token}
+                return {
+                    "Authorization": f"Bearer {self.token}",
+                    "Access-Token": self.token,
+                }
 
             logger.info("PMS: Logging in to get new access token...")
 
@@ -197,9 +210,9 @@ class PmsClient:
                                         reserved_date_str
                                         in rooms_availability[room_number]["dates"]
                                     ):
-                                        rooms_availability[room_number]["dates"].discard(
-                                            reserved_date_str
-                                        )
+                                        rooms_availability[room_number][
+                                            "dates"
+                                        ].discard(reserved_date_str)
                                     current += timedelta(days=1)
 
             # Standardize output for single window
@@ -220,6 +233,7 @@ class PmsClient:
                 error_msg = f"Error parsing PMS response. [Expected: {EXPECTED_PMS_VERSION}, Received: {received_version}] Detail: {e}"
                 raise Exception(error_msg)
             raise
+
 
 # Create the singleton instance
 pms_client = PmsClient()

@@ -9,10 +9,12 @@ from agent.tools.exceptions import ToolValidationError
 
 
 @tool
-async def select_rooms(room_name: str,
-                        check_in_date: str,
-                        check_out_date: str,
-                        runtime: ToolRuntime[AgentServiceProvider]):
+async def select_rooms(
+    room_name: str,
+    check_in_date: str,
+    check_out_date: str,
+    runtime: ToolRuntime[AgentServiceProvider],
+):
     """
     Select a room for booking. Use it when user wants to select a room
     Args:
@@ -35,15 +37,23 @@ async def select_rooms(room_name: str,
     if room_name in runtime.state["selected_rooms"]:
         return f"Room {room_name} is already selected. no action performed"
 
-    is_available = await room_availability_svc.is_room_available(room_name, check_in_date, check_out_date)
+    is_available = await room_availability_svc.is_room_available(
+        room_name, check_in_date, check_out_date
+    )
 
     if not is_available:
-        raise ToolValidationError(f"Room {room_name} is not available for {check_in_date} to {check_out_date}. Ask user if they want to try different dates or different rooms.")
+        raise ToolValidationError(
+            f"Room {room_name} is not available for {check_in_date} to {check_out_date}. Ask user if they want to try different dates or different rooms."
+        )
 
-    return Command(update={
-        "messages": [ToolMessage(
-            content=f"Room {room_name} selected.",
-            tool_call_id=runtime.tool_call_id,
-        )],
-        "selected_rooms": {"append": [room_name]},
-    })
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    content=f"Room {room_name} selected.",
+                    tool_call_id=runtime.tool_call_id,
+                )
+            ],
+            "selected_rooms": {"append": [room_name]},
+        }
+    )

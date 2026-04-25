@@ -43,7 +43,9 @@ async def list_threads(
 
 
 @router.get("/{thread_id}/state")
-async def get_thread_state(thread_id: str, request: Request, _: str = Depends(get_guest_id)):
+async def get_thread_state(
+    thread_id: str, request: Request, _: str = Depends(get_guest_id)
+):
     graph = request.app.state.graph
     config = {"configurable": {"thread_id": thread_id}}
     state = await graph.aget_state(config)

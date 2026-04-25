@@ -37,7 +37,10 @@ def retry_with_jitter(
                     sleep_time = random.uniform(0, delay)
 
                     logger.debug(
-                        "Attempt %d failed: %s. Retrying in %.2fs...", attempt + 1, e, sleep_time
+                        "Attempt %d failed: %s. Retrying in %.2fs...",
+                        attempt + 1,
+                        e,
+                        sleep_time,
                     )
                     await asyncio.sleep(sleep_time)
                 except httpx.RequestError as e:
@@ -50,7 +53,10 @@ def retry_with_jitter(
                     sleep_time = random.uniform(0, delay)
 
                     logger.debug(
-                        "Attempt %d failed: %s. Retrying in %.2fs...", attempt + 1, e, sleep_time
+                        "Attempt %d failed: %s. Retrying in %.2fs...",
+                        attempt + 1,
+                        e,
+                        sleep_time,
                     )
                     await asyncio.sleep(sleep_time)
             assert last_exception is not None
@@ -84,13 +90,15 @@ async def make_request(
     except httpx.HTTPStatusError as e:
         # Handle Auth error
         if e.response.status_code in [401, 403] and login_cb:
-            logger.debug("Auth error (%d). Calling login callback...", e.response.status_code)
-            
+            logger.debug(
+                "Auth error (%d). Calling login callback...", e.response.status_code
+            )
+
             # An auth callback return new headers
             new_headers = await login_cb()
             if new_headers:
                 kwargs.setdefault("headers", {}).update(new_headers)
-                
+
             # Retry once after login
             response = await _do_execute_request()
         else:

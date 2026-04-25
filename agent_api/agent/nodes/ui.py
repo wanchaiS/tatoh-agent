@@ -25,30 +25,32 @@ def push_pending_search_results_ui_node(state: State):
     room_cards: list[RoomCard] = []
     for room_name, dates in merged.items():
         room = state["rooms"][room_name]
-        room_cards.append({
-            "id": room["id"],
-            "room_name": room["room_name"],
-            "room_type": room["room_type"],
-            "summary": room["summary"],
-            "bed_queen": room["bed_queen"],
-            "bed_single": room["bed_single"],
-            "baths": room["baths"],
-            "size": room["size"],
-            "price_weekdays": room["price_weekdays"],
-            "price_weekends_holidays": room["price_weekends_holidays"],
-            "price_ny_songkran": room["price_ny_songkran"],
-            "max_guests": room["max_guests"],
-            "steps_to_beach": room["steps_to_beach"],
-            "sea_view": room["sea_view"],
-            "privacy": room["privacy"],
-            "steps_to_restaurant": room["steps_to_restaurant"],
-            "room_design": room["room_design"],
-            "room_newness": room["room_newness"],
-            "tags": room["tags"],
-            "thumbnail_url": room["thumbnail_url"],
-            "photos": room["photos"],
-            "date_ranges": dates_to_ranges(dates),
-        })
+        room_cards.append(
+            {
+                "id": room["id"],
+                "room_name": room["room_name"],
+                "room_type": room["room_type"],
+                "summary": room["summary"],
+                "bed_queen": room["bed_queen"],
+                "bed_single": room["bed_single"],
+                "baths": room["baths"],
+                "size": room["size"],
+                "price_weekdays": room["price_weekdays"],
+                "price_weekends_holidays": room["price_weekends_holidays"],
+                "price_ny_songkran": room["price_ny_songkran"],
+                "max_guests": room["max_guests"],
+                "steps_to_beach": room["steps_to_beach"],
+                "sea_view": room["sea_view"],
+                "privacy": room["privacy"],
+                "steps_to_restaurant": room["steps_to_restaurant"],
+                "room_design": room["room_design"],
+                "room_newness": room["room_newness"],
+                "tags": room["tags"],
+                "thumbnail_url": room["thumbnail_url"],
+                "photos": room["photos"],
+                "date_ranges": dates_to_ranges(dates),
+            }
+        )
 
     map_data = {
         "src": MAP_SRC,

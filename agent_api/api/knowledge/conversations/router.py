@@ -7,6 +7,7 @@ from db.models import GuestThread
 
 router = APIRouter(prefix="/api/conversations")
 
+
 @router.get("")
 async def list_all_conversations(
     page: int = 1,
@@ -20,7 +21,10 @@ async def list_all_conversations(
     total = total_result.scalar_one()
 
     result = await db.execute(
-        select(GuestThread).order_by(GuestThread.created_at.desc()).offset(offset).limit(limit)
+        select(GuestThread)
+        .order_by(GuestThread.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     threads = result.scalars().all()
 

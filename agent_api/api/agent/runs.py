@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/threads")
 
+
 class RunInput(BaseModel):
     input: dict | None = None
     stream_mode: list[str] | str = ["values", "messages-tuple", "custom"]
@@ -78,6 +79,7 @@ def _has_tool_calls(msg) -> bool:
         return bool(msg.get("tool_calls"))
     return False
 
+
 @router.post("/{thread_id}/runs/stream")
 async def stream_run(
     thread_id: str,
@@ -96,7 +98,7 @@ async def stream_run(
         yield _sse_event("metadata", {"run_id": run_id})
 
         try:
-            async for chunk in graph.astream( # type: ignore[call-overload]
+            async for chunk in graph.astream(  # type: ignore[call-overload]
                 body.input or {},
                 config,
                 stream_mode=["messages", "values", "custom"],
@@ -109,13 +111,17 @@ async def stream_run(
                 if event_type == "messages":
                     msg_chunk, metadata = data
                     # Only stream text content from the agent node
-                    if not msg_chunk.content or metadata.get("langgraph_node") != "agent":
+                    if (
+                        not msg_chunk.content
+                        or metadata.get("langgraph_node") != "agent"
+                    ):
                         continue
 
                 elif event_type == "values":
                     # Only send human + final ai messages (no tool-call ai) and ui
                     filtered_messages = [
-                        m for m in data.get("messages", [])
+                        m
+                        for m in data.get("messages", [])
                         if _get_msg_type(m) == "human"
                         or (_get_msg_type(m) == "ai" and not _has_tool_calls(m))
                     ]

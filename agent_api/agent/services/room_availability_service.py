@@ -8,11 +8,13 @@ from agent.clients.pms_client import pms_client
 
 class InternalRoomAvailabilityData(TypedDict):
     """Internal cache representation — dates kept as a set for efficient merge/discard."""
-    room_id: str          # PMS internal room ID
-    room_no: str          # Room number, lowercased (e.g. "s5")
-    room_type_id: str     # PMS internal room type ID
-    room_type_name: str   # Human-readable room type (e.g. "Sea View Bungalow")
-    dates: set[str]       # Available dates as YYYY-MM-DD strings (mutable set for merging)
+
+    room_id: str  # PMS internal room ID
+    room_no: str  # Room number, lowercased (e.g. "s5")
+    room_type_id: str  # PMS internal room type ID
+    room_type_name: str  # Human-readable room type (e.g. "Sea View Bungalow")
+    dates: set[str]  # Available dates as YYYY-MM-DD strings (mutable set for merging)
+
 
 class RoomAvailabilityService:
     """Per-turn availability service.
@@ -38,7 +40,7 @@ class RoomAvailabilityService:
         """
         search_start_dt = datetime.strptime(search_start, "%Y-%m-%d")
         search_end_dt = datetime.strptime(search_end, "%Y-%m-%d")
-        
+
         current_date = search_start_dt
         while current_date < search_end_dt:
             # Check if current_date is in any covered_range
@@ -55,9 +57,9 @@ class RoomAvailabilityService:
                     current_date.strftime("%Y-%m-%d")
                 )
                 pms_start = datetime.strptime(pms_data["from_date"], "%Y-%m-%d")
-                pms_end = datetime.strptime(pms_data["to_date"], "%Y-%m-%d") + timedelta(
-                    days=1
-                )
+                pms_end = datetime.strptime(
+                    pms_data["to_date"], "%Y-%m-%d"
+                ) + timedelta(days=1)
 
                 # Merge fetched dates into our state
                 for room_no, room_info in pms_data["rooms"].items():
@@ -97,7 +99,9 @@ class RoomAvailabilityService:
 
         return result_rooms
 
-    async def is_room_available(self, room_no: str, check_in: str, check_out: str) -> bool:
+    async def is_room_available(
+        self, room_no: str, check_in: str, check_out: str
+    ) -> bool:
         """Check if a room is available for [check_in, check_out) by making a fresh PMS call (no caching)."""
         check_in_dt = datetime.strptime(check_in, "%Y-%m-%d")
         check_out_dt = datetime.strptime(check_out, "%Y-%m-%d")
@@ -121,7 +125,9 @@ class RoomAvailabilityService:
                 available_dates.update(room_info["dates"])
 
             # Advance cursor past this window
-            pms_end = datetime.strptime(pms_data["to_date"], "%Y-%m-%d") + timedelta(days=1)
+            pms_end = datetime.strptime(pms_data["to_date"], "%Y-%m-%d") + timedelta(
+                days=1
+            )
             cursor = pms_end
 
         return required_dates.issubset(available_dates)

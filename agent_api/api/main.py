@@ -20,7 +20,9 @@ from db.database import DATABASE_URL, engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    serde = JsonPlusSerializer(allowed_msgpack_modules=[('agent.types', 'InternalRoom')])
+    serde = JsonPlusSerializer(
+        allowed_msgpack_modules=[("agent.types", "InternalRoom")]
+    )
     async with (
         AsyncPostgresSaver.from_conn_string(DATABASE_URL, serde=serde) as checkpointer,
         pms_client,

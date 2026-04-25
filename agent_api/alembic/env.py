@@ -15,7 +15,12 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-EXCLUDE_TABLES = {"checkpoint_blobs", "checkpoints", "checkpoint_writes", "checkpoint_migrations"}
+EXCLUDE_TABLES = {
+    "checkpoint_blobs",
+    "checkpoints",
+    "checkpoint_writes",
+    "checkpoint_migrations",
+}
 
 
 def include_object(object, name, type_, reflected, compare_to):

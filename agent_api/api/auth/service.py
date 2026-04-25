@@ -40,7 +40,9 @@ def create_token(username: str) -> str:
 def decode_token(token: str) -> str | None:
     """Decode token and return username, or None if invalid/expired."""
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(
+            token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+        )
         return payload.get("sub")
     except jwt.InvalidTokenError:
         return None

@@ -8,17 +8,16 @@ from agent.tools.common_validators import validate_room_names
 
 
 @tool
-async def deselect_rooms(room_name: str,
-                        runtime: ToolRuntime[AgentServiceProvider]):
+async def deselect_rooms(room_name: str, runtime: ToolRuntime[AgentServiceProvider]):
     """
     Deselect a room for booking. Use it when user wants to deselect a room
     Args:
         room_name: Room name to deselect. Use room names from **Available room names**
-    
+
     Returns:
         Message indicating which rooms were deselected.
     """
-    
+
     internal_room_dict = runtime.state["rooms"]
 
     # Validate args
@@ -28,10 +27,14 @@ async def deselect_rooms(room_name: str,
     if room_name not in runtime.state["selected_rooms"]:
         return f"Room {room_name} is not selected. no action performed"
 
-    return Command(update={
-        "messages": [ToolMessage(
-            content=f"Room {room_name} deselected.",
-            tool_call_id=runtime.tool_call_id,
-        )],
-        "selected_rooms": {"remove": room_name},
-    })
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    content=f"Room {room_name} deselected.",
+                    tool_call_id=runtime.tool_call_id,
+                )
+            ],
+            "selected_rooms": {"remove": room_name},
+        }
+    )

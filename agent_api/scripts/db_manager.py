@@ -18,12 +18,14 @@ async def setup_schema():
     print("Schema 'tatoh' is ready.")
     await engine.dispose()
 
+
 def run_migrations():
     """Programmatically run 'alembic upgrade head'."""
     print("Running Alembic migrations...")
     alembic_cfg = Config("alembic.ini")
     command.upgrade(alembic_cfg, "head")
     print("Database migrations complete!")
+
 
 def check_status():
     """Check current database revision."""
@@ -36,18 +38,20 @@ def check_status():
     print("\n--- Latest Available (Head) Revision ---")
     command.heads(alembic_cfg, verbose=True)
 
+
 def migrate():
     """Run full migration sequence."""
     asyncio.run(setup_schema())
     run_migrations()
 
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python -m scripts.db_manager [migrate|status]")
         sys.exit(1)
-    
+
     cmd = sys.argv[1].strip().lower()
-    
+
     if cmd == "migrate":
         migrate()
     elif cmd == "status":
@@ -56,6 +60,7 @@ def main():
         print(f"Unknown command: {cmd}")
         print("Available commands: migrate, status")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

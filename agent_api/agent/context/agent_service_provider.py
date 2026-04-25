@@ -22,7 +22,9 @@ class AgentServiceProvider:
 
     # ── Scoped Services ──
     db_session: AsyncSession = field(default_factory=AsyncSessionLocal)
-    room_availability: RoomAvailabilityService = field(default_factory=RoomAvailabilityService)
+    room_availability: RoomAvailabilityService = field(
+        default_factory=RoomAvailabilityService
+    )
     room_service: RoomService = field(init=False)
 
     def __post_init__(self) -> None:

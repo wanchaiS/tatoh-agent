@@ -16,7 +16,9 @@ def _make_pms_response(from_date: str, to_date: str, rooms: dict) -> dict:
     }
 
 
-def _make_room(room_id: str, room_no: str, room_type_id: str, room_type_name: str, dates: list[str]) -> dict:
+def _make_room(
+    room_id: str, room_no: str, room_type_id: str, room_type_name: str, dates: list[str]
+) -> dict:
     """Build a single room entry in PMS response format."""
     return {
         "room_id": room_id,
@@ -35,6 +37,7 @@ def _dates_range(start: str, days: int) -> list[str]:
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def mock_pms_client():
     return AsyncMock()
@@ -51,20 +54,33 @@ def service(mock_pms_client):
 # This function is used by the search tool. It fetches room availability from PMS
 # and caches results so repeated searches within the same turn don't hit PMS again.
 
-class TestGetAvailability:
 
+class TestGetAvailability:
     # Scenario 1: Simple search that fits in one 14-day PMS window
     # Guest searches for 3 nights (Apr 10-13). PMS returns a 14-day window (Apr 9-22)
     # that fully covers the request. Should return both rooms with correct dates.
     @pytest.mark.asyncio
-    async def test_simple_search_within_single_pms_window(self, service, mock_pms_client):
+    async def test_simple_search_within_single_pms_window(
+        self, service, mock_pms_client
+    ):
         # Mock: PMS returns 2 rooms (S5 and V2), both fully available for 14 days
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-09", "2026-04-22",
-            {
-                "s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-04-09", 14)),
-                "v2": _make_room("r2", "v2", "rt2", "Villa", _dates_range("2026-04-09", 14)),
-            },
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-09",
+                "2026-04-22",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        _dates_range("2026-04-09", 14),
+                    ),
+                    "v2": _make_room(
+                        "r2", "v2", "rt2", "Villa", _dates_range("2026-04-09", 14)
+                    ),
+                },
+            )
         )
 
         result = await service.get_availability("2026-04-10", "2026-04-13")
@@ -82,11 +98,24 @@ class TestGetAvailability:
     # PMS always returns 14 days, but we only asked for 2 days (Apr 9-11).
     # Make sure we don't leak extra dates from the PMS window into the result.
     @pytest.mark.asyncio
-    async def test_result_only_contains_requested_dates_not_full_window(self, service, mock_pms_client):
+    async def test_result_only_contains_requested_dates_not_full_window(
+        self, service, mock_pms_client
+    ):
         # Mock: PMS returns 14 days of availability for S5
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-09", "2026-04-22",
-            {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-04-09", 14))},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-09",
+                "2026-04-22",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        _dates_range("2026-04-09", 14),
+                    )
+                },
+            )
         )
 
         result = await service.get_availability("2026-04-09", "2026-04-11")
@@ -98,11 +127,24 @@ class TestGetAvailability:
     # Room S5 has reservations on Apr 10 and Apr 12 (PMS already excluded them).
     # We ask for Apr 9-13 — should only get back the dates that are actually free.
     @pytest.mark.asyncio
-    async def test_partially_booked_room_returns_only_free_dates(self, service, mock_pms_client):
+    async def test_partially_booked_room_returns_only_free_dates(
+        self, service, mock_pms_client
+    ):
         # Mock: PMS says S5 is only free on Apr 9 and Apr 11 (Apr 10 and 12 are booked)
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-09", "2026-04-22",
-            {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", ["2026-04-09", "2026-04-11"])},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-09",
+                "2026-04-22",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        ["2026-04-09", "2026-04-11"],
+                    )
+                },
+            )
         )
 
         result = await service.get_availability("2026-04-09", "2026-04-13")
@@ -118,12 +160,30 @@ class TestGetAvailability:
         # Mock: first call covers Apr 9-22, second call covers Apr 23 - May 6
         mock_pms_client.fetch_room_availability_window.side_effect = [
             _make_pms_response(
-                "2026-04-09", "2026-04-22",
-                {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-04-09", 14))},
+                "2026-04-09",
+                "2026-04-22",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        _dates_range("2026-04-09", 14),
+                    )
+                },
             ),
             _make_pms_response(
-                "2026-04-23", "2026-05-06",
-                {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-04-23", 14))},
+                "2026-04-23",
+                "2026-05-06",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        _dates_range("2026-04-23", 14),
+                    )
+                },
             ),
         ]
 
@@ -131,8 +191,12 @@ class TestGetAvailability:
 
         # Should have all 6 dates merged from both windows
         assert result["s5"]["dates"] == {
-            "2026-04-20", "2026-04-21", "2026-04-22",
-            "2026-04-23", "2026-04-24", "2026-04-25",
+            "2026-04-20",
+            "2026-04-21",
+            "2026-04-22",
+            "2026-04-23",
+            "2026-04-24",
+            "2026-04-25",
         }
         # Confirm it took 2 PMS calls to cover the full range
         assert mock_pms_client.fetch_room_availability_window.call_count == 2
@@ -143,9 +207,20 @@ class TestGetAvailability:
     @pytest.mark.asyncio
     async def test_overlapping_search_reuses_cache(self, service, mock_pms_client):
         # Mock: PMS returns one 14-day window
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-09", "2026-04-22",
-            {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-04-09", 14))},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-09",
+                "2026-04-22",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        _dates_range("2026-04-09", 14),
+                    )
+                },
+            )
         )
 
         # First call — fetches from PMS
@@ -162,8 +237,12 @@ class TestGetAvailability:
     @pytest.mark.asyncio
     async def test_pms_returns_no_rooms(self, service, mock_pms_client):
         # Mock: PMS responds with a valid structure but no rooms at all
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-09", "2026-04-22", {},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-09",
+                "2026-04-22",
+                {},
+            )
         )
 
         result = await service.get_availability("2026-04-10", "2026-04-13")
@@ -178,16 +257,27 @@ class TestGetAvailability:
 # free RIGHT NOW. It always makes a fresh PMS call (no caching) because someone
 # else could have booked the room between the search and the selection.
 
-class TestIsRoomAvailable:
 
+class TestIsRoomAvailable:
     # Scenario 1: Room is free for all requested nights
     # Guest picks room S5 for 3 nights (Apr 10-13). PMS confirms all 3 nights are free.
     @pytest.mark.asyncio
     async def test_room_free_for_all_nights(self, service, mock_pms_client):
         # Mock: PMS says S5 is fully available for the next 14 days
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-10", "2026-04-23",
-            {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-04-10", 14))},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-10",
+                "2026-04-23",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        _dates_range("2026-04-10", 14),
+                    )
+                },
+            )
         )
 
         result = await service.is_room_available("s5", "2026-04-10", "2026-04-13")
@@ -202,9 +292,20 @@ class TestIsRoomAvailable:
     @pytest.mark.asyncio
     async def test_checkout_date_is_not_required(self, service, mock_pms_client):
         # Mock: PMS says S5 is free on Apr 13 and 14, but NOT on Apr 15 (booked by next guest)
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-13", "2026-04-26",
-            {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", ["2026-04-13", "2026-04-14"])},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-13",
+                "2026-04-26",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        ["2026-04-13", "2026-04-14"],
+                    )
+                },
+            )
         )
 
         result = await service.is_room_available("s5", "2026-04-13", "2026-04-15")
@@ -218,9 +319,20 @@ class TestIsRoomAvailable:
     @pytest.mark.asyncio
     async def test_room_has_missing_night_in_range(self, service, mock_pms_client):
         # Mock: PMS says S5 is free on Apr 10 and Apr 12, but NOT Apr 11
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-10", "2026-04-23",
-            {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", ["2026-04-10", "2026-04-12"])},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-10",
+                "2026-04-23",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        ["2026-04-10", "2026-04-12"],
+                    )
+                },
+            )
         )
 
         result = await service.is_room_available("s5", "2026-04-10", "2026-04-13")
@@ -234,9 +346,16 @@ class TestIsRoomAvailable:
     @pytest.mark.asyncio
     async def test_room_not_found_in_pms(self, service, mock_pms_client):
         # Mock: PMS only returns room V2, no S5
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-10", "2026-04-23",
-            {"v2": _make_room("r2", "v2", "rt2", "Villa", _dates_range("2026-04-10", 14))},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-10",
+                "2026-04-23",
+                {
+                    "v2": _make_room(
+                        "r2", "v2", "rt2", "Villa", _dates_range("2026-04-10", 14)
+                    )
+                },
+            )
         )
 
         result = await service.is_room_available("s5", "2026-04-10", "2026-04-13")
@@ -250,9 +369,20 @@ class TestIsRoomAvailable:
     @pytest.mark.asyncio
     async def test_room_name_case_mismatch(self, service, mock_pms_client):
         # Mock: PMS returns room as "s5" (lowercase)
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-10", "2026-04-23",
-            {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-04-10", 14))},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-10",
+                "2026-04-23",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        _dates_range("2026-04-10", 14),
+                    )
+                },
+            )
         )
 
         # We pass "S5" (uppercase) — should still match
@@ -267,9 +397,16 @@ class TestIsRoomAvailable:
     @pytest.mark.asyncio
     async def test_single_night_stay(self, service, mock_pms_client):
         # Mock: PMS says S5 is free on Apr 10 only
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-10", "2026-04-23",
-            {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", ["2026-04-10"])},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-10",
+                "2026-04-23",
+                {
+                    "s5": _make_room(
+                        "r1", "s5", "rt1", "Sea View Bungalow", ["2026-04-10"]
+                    )
+                },
+            )
         )
 
         result = await service.is_room_available("s5", "2026-04-10", "2026-04-11")
@@ -281,16 +418,36 @@ class TestIsRoomAvailable:
     # Guest wants Apr 30 - May 6 (6 nights). First PMS window covers up to May 3,
     # second window covers May 4 onwards. Both windows have the room free.
     @pytest.mark.asyncio
-    async def test_long_stay_across_two_windows_all_free(self, service, mock_pms_client):
+    async def test_long_stay_across_two_windows_all_free(
+        self, service, mock_pms_client
+    ):
         # Mock: two PMS windows, S5 is free in both
         mock_pms_client.fetch_room_availability_window.side_effect = [
             _make_pms_response(
-                "2026-04-20", "2026-05-03",
-                {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-04-20", 14))},
+                "2026-04-20",
+                "2026-05-03",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        _dates_range("2026-04-20", 14),
+                    )
+                },
             ),
             _make_pms_response(
-                "2026-05-04", "2026-05-17",
-                {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-05-04", 14))},
+                "2026-05-04",
+                "2026-05-17",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        _dates_range("2026-05-04", 14),
+                    )
+                },
             ),
         ]
 
@@ -304,15 +461,27 @@ class TestIsRoomAvailable:
     # Scenario 7: Long stay spanning 2 PMS windows — second window is booked
     # Same long stay, but room S5 is fully booked in the second PMS window.
     @pytest.mark.asyncio
-    async def test_long_stay_across_two_windows_second_booked(self, service, mock_pms_client):
+    async def test_long_stay_across_two_windows_second_booked(
+        self, service, mock_pms_client
+    ):
         # Mock: first window has S5 free, second window has S5 fully booked (empty dates)
         mock_pms_client.fetch_room_availability_window.side_effect = [
             _make_pms_response(
-                "2026-04-20", "2026-05-03",
-                {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-04-20", 14))},
+                "2026-04-20",
+                "2026-05-03",
+                {
+                    "s5": _make_room(
+                        "r1",
+                        "s5",
+                        "rt1",
+                        "Sea View Bungalow",
+                        _dates_range("2026-04-20", 14),
+                    )
+                },
             ),
             _make_pms_response(
-                "2026-05-04", "2026-05-17",
+                "2026-05-04",
+                "2026-05-17",
                 {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", [])},
             ),
         ]
@@ -327,9 +496,12 @@ class TestIsRoomAvailable:
     @pytest.mark.asyncio
     async def test_room_fully_booked_zero_dates(self, service, mock_pms_client):
         # Mock: PMS returns S5 but with an empty dates list (all booked)
-        mock_pms_client.fetch_room_availability_window.return_value = _make_pms_response(
-            "2026-04-10", "2026-04-23",
-            {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", [])},
+        mock_pms_client.fetch_room_availability_window.return_value = (
+            _make_pms_response(
+                "2026-04-10",
+                "2026-04-23",
+                {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", [])},
+            )
         )
 
         result = await service.is_room_available("s5", "2026-04-10", "2026-04-13")
@@ -345,8 +517,17 @@ class TestIsRoomAvailable:
     async def test_always_calls_pms_fresh_ignores_cache(self, service, mock_pms_client):
         # Mock: PMS returns the same response for both calls
         pms_response = _make_pms_response(
-            "2026-04-10", "2026-04-23",
-            {"s5": _make_room("r1", "s5", "rt1", "Sea View Bungalow", _dates_range("2026-04-10", 14))},
+            "2026-04-10",
+            "2026-04-23",
+            {
+                "s5": _make_room(
+                    "r1",
+                    "s5",
+                    "rt1",
+                    "Sea View Bungalow",
+                    _dates_range("2026-04-10", 14),
+                )
+            },
         )
         mock_pms_client.fetch_room_availability_window.return_value = pms_response
 

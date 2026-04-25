@@ -7,5 +7,7 @@ from agent.state import State
 
 async def agent_node(state: State) -> dict:
     prompt = get_prompt(state)
-    response = await get_model_with_tools().ainvoke([SystemMessage(content=prompt)] + state["messages"])
+    response = await get_model_with_tools().ainvoke(
+        [SystemMessage(content=prompt)] + state["messages"]
+    )
     return {"messages": [response]}

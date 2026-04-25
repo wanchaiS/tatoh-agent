@@ -52,7 +52,9 @@ class RoomPhoto(Base):
     __table_args__ = {"schema": SCHEMA}
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    room_id: Mapped[int] = mapped_column(ForeignKey(f"{SCHEMA}.rooms.id", ondelete="CASCADE"))
+    room_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{SCHEMA}.rooms.id", ondelete="CASCADE")
+    )
     filename: Mapped[str] = mapped_column(String(255))
     sort_order: Mapped[int] = mapped_column(default=0)
 

@@ -20,7 +20,9 @@ class RoomService:
         """Look up a single room by its room_name (e.g. 'S1', 'V2')."""
         return await RoomRepository(self.db).get_by_name(room_name)
 
-    async def get_all_photos_for_rooms(self, room_ids: list[int]) -> dict[int, list[EmbeddedPhoto]]:
+    async def get_all_photos_for_rooms(
+        self, room_ids: list[int]
+    ) -> dict[int, list[EmbeddedPhoto]]:
         """Return all photos (url + thumbnails) per room, ordered by sort_order."""
         if not room_ids:
             return {}

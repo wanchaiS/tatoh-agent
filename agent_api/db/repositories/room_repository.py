@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +18,9 @@ class RoomRepository:
         return result.scalars().first()
 
     async def get_by_name(self, name: str) -> RoomModel | None:
-        result = await self.db.execute(select(RoomModel).where(RoomModel.room_name == name))
+        result = await self.db.execute(
+            select(RoomModel).where(RoomModel.room_name == name)
+        )
         return result.scalars().first()
 
     async def create(self, data: BaseModel) -> RoomModel:
