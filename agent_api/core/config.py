@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     jwt_expire_minutes: int = Field(default=10, alias="JWT_EXPIRE_MINUTES")
+    jwt_refresh_expire_days: int = Field(default=30, alias="JWT_REFRESH_EXPIRE_DAYS")
+    cookie_secure: bool = Field(default=True, alias="COOKIE_SECURE")
 
     @property
     def admin_users(self) -> dict[str, str]:

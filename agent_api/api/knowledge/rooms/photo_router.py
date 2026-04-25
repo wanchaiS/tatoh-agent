@@ -10,7 +10,7 @@ from PIL import Image as PILImage
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db
+from api.dependencies import get_db, require_auth
 from api.knowledge.rooms.photo_schemas import PhotoReorderItem, PhotoResponse
 from api.schemas import OkResponse
 from core.config import STATIC_DIR, STATIC_URL_PREFIX
@@ -48,7 +48,9 @@ def _create_thumbnails(
 
 @router.get("/{room_id}/photos", response_model=list[PhotoResponse])
 async def list_photos(
-    room_id: int, db: AsyncSession = Depends(get_db)
+    room_id: int,
+    _: str = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
 ) -> list[PhotoResponse]:
     """List all photos for a room, ordered by sort_order."""
     # Verify room exists
@@ -83,6 +85,7 @@ async def list_photos(
 async def upload_photo(
     room_id: int,
     file: UploadFile = File(...),
+    _: str = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ) -> PhotoResponse:
     """Upload a photo for a room."""
@@ -147,6 +150,7 @@ async def upload_photo(
 async def delete_photo(
     room_id: int,
     photo_id: int,
+    _: str = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a photo."""
@@ -182,6 +186,7 @@ async def delete_photo(
 async def reorder_photos(
     room_id: int,
     items: list[PhotoReorderItem],
+    _: str = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ) -> OkResponse:
     """Reorder photos by updating sort_order."""

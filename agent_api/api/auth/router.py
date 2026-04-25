@@ -1,23 +1,43 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from api.auth.schemas import LoginRequest, UserInfo
-from api.auth.service import create_token, decode_token, verify_credentials
+from api.auth.service import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    verify_credentials,
+)
 from api.dependencies import require_auth
 from api.schemas import OkResponse
+from core.config import settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-_COOKIE_NAME = "session"
+_ACCESS_COOKIE = "session"
+_REFRESH_COOKIE = "refresh_token"
 
 
-def _set_session_cookie(response: Response, token: str) -> None:
+def _set_access_cookie(response: Response, token: str) -> None:
     response.set_cookie(
-        key=_COOKIE_NAME,
+        key=_ACCESS_COOKIE,
         value=token,
         httponly=True,
         samesite="strict",
-        secure=True,
+        secure=settings.cookie_secure,
         path="/",
+        max_age=settings.jwt_expire_minutes * 60,
+    )
+
+
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=_REFRESH_COOKIE,
+        value=token,
+        httponly=True,
+        samesite="strict",
+        secure=settings.cookie_secure,
+        path="/",
+        max_age=30 * 24 * 60 * 60,
     )
 
 
@@ -25,27 +45,29 @@ def _set_session_cookie(response: Response, token: str) -> None:
 async def login(body: LoginRequest, response: Response) -> UserInfo:
     if not verify_credentials(body.username, body.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = create_token(body.username.lower())
-    _set_session_cookie(response, token)
-    return UserInfo(username=body.username.lower())
+    username = body.username.lower()
+    _set_access_cookie(response, create_access_token(username))
+    _set_refresh_cookie(response, create_refresh_token(username))
+    return UserInfo(username=username)
 
 
 @router.post("/logout", response_model=OkResponse)
 async def logout(response: Response) -> OkResponse:
-    response.delete_cookie(key=_COOKIE_NAME, path="/")
+    response.delete_cookie(key=_ACCESS_COOKIE, path="/")
+    response.delete_cookie(key=_REFRESH_COOKIE, path="/")
+    response.delete_cookie(key=_REFRESH_COOKIE, path="/api/auth")  # clear legacy path
     return OkResponse()
 
 
 @router.post("/refresh-token")
 async def refresh_token(request: Request, response: Response) -> UserInfo:
-    token = request.cookies.get(_COOKIE_NAME)
+    token = request.cookies.get(_REFRESH_COOKIE)
     if not token:
-        raise HTTPException(status_code=401, detail="No session cookie")
-    username = decode_token(token)
+        raise HTTPException(status_code=401, detail="No refresh token cookie")
+    username = decode_token(token, expected_type="refresh")
     if not username:
-        raise HTTPException(status_code=401, detail="Session expired")
-    new_token = create_token(username)
-    _set_session_cookie(response, new_token)
+        raise HTTPException(status_code=401, detail="Refresh token expired or invalid")
+    _set_access_cookie(response, create_access_token(username))
     return UserInfo(username=username)
 
 

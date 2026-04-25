@@ -31,7 +31,7 @@ def require_auth(request: Request) -> str:
     token = request.cookies.get("session")
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    username = decode_token(token)
+    username = decode_token(token, expected_type="access")
     if not username:
         raise HTTPException(status_code=401, detail="Session expired")
     return username
