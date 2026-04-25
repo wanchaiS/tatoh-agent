@@ -45,5 +45,5 @@ def validate_room_names(
 def parse_date(date_str: str) -> datetime | None:
     try:
         return datetime.strptime(date_str, "%Y-%m-%d")
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None

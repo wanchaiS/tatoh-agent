@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from api.auth.schemas import LoginRequest, UserInfo
-from api.schemas import OkResponse
 from api.auth.service import create_token, decode_token, verify_credentials
 from api.dependencies import require_auth
+from api.schemas import OkResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 

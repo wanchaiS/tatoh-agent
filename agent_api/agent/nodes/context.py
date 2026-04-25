@@ -1,5 +1,3 @@
-from typing import Any
-
 from langgraph.runtime import Runtime
 
 from agent.context.agent_service_provider import AgentServiceProvider

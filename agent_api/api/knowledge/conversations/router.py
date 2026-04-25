@@ -3,7 +3,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db, require_auth
-from api.knowledge.conversations.schemas import ConversationItem, ConversationListResponse
+from api.knowledge.conversations.schemas import (
+    ConversationItem,
+    ConversationListResponse,
+)
 from db.models import GuestThread
 
 router = APIRouter(prefix="/api/conversations")

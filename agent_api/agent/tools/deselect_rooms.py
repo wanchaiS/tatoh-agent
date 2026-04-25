@@ -8,7 +8,9 @@ from agent.tools.common_validators import validate_room_names
 
 
 @tool
-async def deselect_rooms(room_name: str, runtime: ToolRuntime[AgentServiceProvider]) -> Command | str:
+async def deselect_rooms(
+    room_name: str, runtime: ToolRuntime[AgentServiceProvider]
+) -> Command | str:
     """
     Deselect a room for booking. Use it when user wants to deselect a room
     Args:
