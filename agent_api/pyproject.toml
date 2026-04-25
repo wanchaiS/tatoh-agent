@@ -62,7 +62,14 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 plugins = ["pydantic.mypy"]
 
+[[tool.mypy.overrides]]
+module = "*.__tests__.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_any_generics = false
+
 [tool.ruff]
+extend-exclude = ["agent-legacy"]
 lint.select = [
     "E",    # pycodestyle
     "F",    # pyflakes
@@ -78,7 +85,6 @@ lint.ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["UP"]
 "scripts/*" = ["T201"]
-"agent-legacy/*" = ["F", "T201", "UP"]
 
 [dependency-groups]
 dev = [

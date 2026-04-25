@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/api/threads")
 
 
 class RunInput(BaseModel):
-    input: dict | None = None
+    input: dict[str, Any] | None = None
     stream_mode: list[str] | str = ["values", "messages-tuple", "custom"]
     assistant_id: str = "agent"
 
@@ -51,7 +52,7 @@ def _get_msg_type(msg) -> str:
     return ""
 
 
-def _extract_human_text(input_data: dict | None) -> str | None:
+def _extract_human_text(input_data: dict[str, Any] | None) -> str | None:
     if not input_data:
         return None
     for msg in input_data.get("messages", []):
@@ -86,7 +87,7 @@ async def stream_run(
     body: RunInput,
     graph: CompiledStateGraph = Depends(get_graph),
     db: AsyncSession = Depends(get_db),
-):
+) -> StreamingResponse:
     """Stream a graph run, matching LangGraph Agent Server SSE format."""
     context = AgentServiceProvider(db_session=db)
     config = {"configurable": {"thread_id": thread_id}}

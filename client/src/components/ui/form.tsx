@@ -136,6 +136,7 @@ FormMessage.displayName = "FormMessage"
 export {
   Form, FormControl,
   FormDescription, FormField, FormItem,
+  // eslint-disable-next-line react-refresh/only-export-components
   FormLabel, FormMessage, useFormField
 }
 

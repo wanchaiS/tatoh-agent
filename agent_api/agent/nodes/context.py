@@ -1,3 +1,5 @@
+from typing import Any
+
 from langgraph.runtime import Runtime
 
 from agent.context.agent_service_provider import AgentServiceProvider
@@ -6,7 +8,9 @@ from agent.types import InternalRoom
 from db.models import Room
 
 
-async def context_node(state: State, runtime: Runtime[AgentServiceProvider]):
+async def context_node(
+    state: State, runtime: Runtime[AgentServiceProvider]
+) -> dict[str, dict[str, InternalRoom]]:
     """Context that can be re-used in the graph, to avoid re-fetching data from the database."""
     room_service = runtime.context.room_service
     rooms: list[Room] = await room_service.get_all_rooms()

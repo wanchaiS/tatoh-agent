@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from api.auth.schemas import LoginRequest, UserInfo
+from api.schemas import OkResponse
 from api.auth.service import create_token, decode_token, verify_credentials
 from api.dependencies import require_auth
 
@@ -29,10 +30,10 @@ async def login(body: LoginRequest, response: Response) -> UserInfo:
     return UserInfo(username=body.username.lower())
 
 
-@router.post("/logout")
-async def logout(response: Response) -> dict:
+@router.post("/logout", response_model=OkResponse)
+async def logout(response: Response) -> OkResponse:
     response.delete_cookie(key=_COOKIE_NAME, path="/")
-    return {"ok": True}
+    return OkResponse()
 
 
 @router.post("/refresh-token")

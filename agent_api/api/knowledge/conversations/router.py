@@ -3,18 +3,19 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db, require_auth
+from api.knowledge.conversations.schemas import ConversationItem, ConversationListResponse
 from db.models import GuestThread
 
 router = APIRouter(prefix="/api/conversations")
 
 
-@router.get("")
+@router.get("", response_model=ConversationListResponse)
 async def list_all_conversations(
     page: int = 1,
     limit: int = 50,
     _: str = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
-):
+) -> ConversationListResponse:
     offset = (page - 1) * limit
 
     total_result = await db.execute(select(func.count()).select_from(GuestThread))
@@ -28,16 +29,16 @@ async def list_all_conversations(
     )
     threads = result.scalars().all()
 
-    return {
-        "threads": [
-            {
-                "thread_id": t.thread_id,
-                "title": t.title,
-                "created_at": t.created_at.isoformat(),
-            }
+    return ConversationListResponse(
+        threads=[
+            ConversationItem(
+                thread_id=t.thread_id,
+                title=t.title,
+                created_at=t.created_at.isoformat(),
+            )
             for t in threads
         ],
-        "total": total,
-        "page": page,
-        "limit": limit,
-    }
+        total=total,
+        page=page,
+        limit=limit,
+    )

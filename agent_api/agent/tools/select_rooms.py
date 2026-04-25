@@ -14,7 +14,7 @@ async def select_rooms(
     check_in_date: str,
     check_out_date: str,
     runtime: ToolRuntime[AgentServiceProvider],
-):
+) -> Command | str:
     """
     Select a room for booking. Use it when user wants to select a room
     Args:

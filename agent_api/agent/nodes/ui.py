@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, timedelta
+from typing import Any
 
 from langgraph.graph.ui import push_ui_message
 
@@ -7,10 +8,10 @@ from agent.state import State
 from agent.types import MAP_SRC, ROOM_PIN_POSITIONS, RoomCard
 
 
-def push_pending_search_results_ui_node(state: State):
+def push_pending_search_results_ui_node(state: State) -> dict[str, Any] | None:
     pending_search_results = state["pending_render_search_results"]
     if not pending_search_results:
-        return
+        return None
 
     # merge rooms
     merged = {}

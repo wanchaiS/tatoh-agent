@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Annotated, TypedDict
+from typing import Annotated, Any, TypedDict
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
@@ -9,7 +9,7 @@ from agent.tools.search_available_rooms import RoomAvailabilityResult
 from agent.types import InternalRoom
 
 
-def list_reducer(existing: list[str], update: dict) -> list[str]:
+def list_reducer(existing: list[str], update: dict[str, Any]) -> list[str]:
     """Custom reducer for list[str]: supports append, clear, remove."""
     if "clear" in update:
         return []

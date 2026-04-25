@@ -3,6 +3,7 @@
 import logging
 import os
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from PIL import Image as PILImage
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db
 from api.knowledge.rooms.photo_schemas import PhotoReorderItem, PhotoResponse
+from api.schemas import OkResponse
 from core.config import STATIC_DIR, STATIC_URL_PREFIX
 from core.photo_helpers import THUMBNAIL_WIDTHS, build_photo_urls
 from db.models import Room as RoomModel
@@ -23,12 +25,17 @@ router = APIRouter(prefix="/api/rooms", tags=["room_photos"])
 PHOTOS_DIR = STATIC_DIR / "photos" / "rooms"
 
 
-def _create_thumbnails(source_path, room_photos_dir, filename):
+def _create_thumbnails(
+    source_path: Path,
+    room_photos_dir: Path,
+    filename: str,
+) -> None:
     """Generate three JPEG thumbnails at 240w, 480w, 960w with aspect-preserving resize."""
     try:
-        with PILImage.open(source_path) as img:
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
+        with PILImage.open(source_path) as opened:
+            img: PILImage.Image = (
+                opened.convert("RGB") if opened.mode in ("RGBA", "P") else opened
+            )
             for width in THUMBNAIL_WIDTHS:
                 dest_dir = room_photos_dir / "thumbnails" / str(width)
                 dest_dir.mkdir(parents=True, exist_ok=True)
@@ -40,20 +47,22 @@ def _create_thumbnails(source_path, room_photos_dir, filename):
 
 
 @router.get("/{room_id}/photos", response_model=list[PhotoResponse])
-async def list_photos(room_id: int, db: AsyncSession = Depends(get_db)):
+async def list_photos(
+    room_id: int, db: AsyncSession = Depends(get_db)
+) -> list[PhotoResponse]:
     """List all photos for a room, ordered by sort_order."""
     # Verify room exists
-    result = await db.execute(select(RoomModel).where(RoomModel.id == room_id))
-    if result.scalars().first() is None:
+    room_check = await db.execute(select(RoomModel).where(RoomModel.id == room_id))
+    if room_check.scalars().first() is None:
         raise HTTPException(status_code=404, detail=f"Room {room_id} not found")
 
     # Get photos
-    result = await db.execute(
+    photos_result = await db.execute(
         select(RoomPhoto)
         .where(RoomPhoto.room_id == room_id)
         .order_by(RoomPhoto.sort_order)
     )
-    photos = result.scalars().all()
+    photos = photos_result.scalars().all()
 
     return [
         PhotoResponse(
@@ -75,11 +84,11 @@ async def upload_photo(
     room_id: int,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-):
+) -> PhotoResponse:
     """Upload a photo for a room."""
     # Verify room exists
-    result = await db.execute(select(RoomModel).where(RoomModel.id == room_id))
-    if result.scalars().first() is None:
+    room_check = await db.execute(select(RoomModel).where(RoomModel.id == room_id))
+    if room_check.scalars().first() is None:
         raise HTTPException(status_code=404, detail=f"Room {room_id} not found")
 
     # Create directory if it doesn't exist
@@ -104,12 +113,12 @@ async def upload_photo(
     _create_thumbnails(filepath, room_photos_dir, filename)
 
     # Get max sort_order for this room
-    result = await db.execute(
+    sort_result = await db.execute(
         select(RoomPhoto.sort_order)
         .where(RoomPhoto.room_id == room_id)
         .order_by(RoomPhoto.sort_order.desc())
     )
-    max_order = result.scalars().first() or -1
+    max_order = sort_result.scalars().first() or -1
     new_sort_order = max_order + 1
 
     # Save to database
@@ -139,14 +148,14 @@ async def delete_photo(
     room_id: int,
     photo_id: int,
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """Delete a photo."""
-    result = await db.execute(
+    photo_result = await db.execute(
         select(RoomPhoto)
         .where(RoomPhoto.id == photo_id)
         .where(RoomPhoto.room_id == room_id)
     )
-    photo = result.scalars().first()
+    photo = photo_result.scalars().first()
 
     if not photo:
         raise HTTPException(status_code=404, detail=f"Photo {photo_id} not found")
@@ -169,16 +178,16 @@ async def delete_photo(
     await db.commit()
 
 
-@router.patch("/{room_id}/photos/reorder")
+@router.patch("/{room_id}/photos/reorder", response_model=OkResponse)
 async def reorder_photos(
     room_id: int,
     items: list[PhotoReorderItem],
     db: AsyncSession = Depends(get_db),
-):
+) -> OkResponse:
     """Reorder photos by updating sort_order."""
     # Verify room exists
-    result = await db.execute(select(RoomModel).where(RoomModel.id == room_id))
-    if result.scalars().first() is None:
+    room_check = await db.execute(select(RoomModel).where(RoomModel.id == room_id))
+    if room_check.scalars().first() is None:
         raise HTTPException(status_code=404, detail=f"Room {room_id} not found")
 
     # Update sort_order for each photo
@@ -191,4 +200,4 @@ async def reorder_photos(
         )
 
     await db.commit()
-    return {"status": "ok"}
+    return OkResponse()

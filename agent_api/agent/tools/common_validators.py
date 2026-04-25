@@ -4,7 +4,7 @@ from agent.tools.exceptions import ToolValidationError
 from agent.types import InternalRoom
 
 
-def validate_dates(start_date: str, end_date: str):
+def validate_dates(start_date: str, end_date: str) -> None:
     if start_date is None or end_date is None:
         raise ToolValidationError("start_date and end_date are required.")
 
@@ -23,8 +23,9 @@ def validate_dates(start_date: str, end_date: str):
 
 
 def validate_room_names(
-    internal_room_dict: dict[str, InternalRoom], room_names: list[str] | None = None
-):
+    internal_room_dict: dict[str, InternalRoom],
+    room_names: list[str] | None = None,
+) -> None:
     if not room_names:
         return None
 
@@ -44,5 +45,5 @@ def validate_room_names(
 def parse_date(date_str: str) -> datetime | None:
     try:
         return datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None
