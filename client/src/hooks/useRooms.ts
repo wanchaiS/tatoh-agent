@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiFetch } from '../lib/api'
 
 export const roomsQueryOptions = () => ({
   queryKey: ['rooms'] as const,
   queryFn: async (): Promise<RoomResponse[]> => {
-    const res = await fetch('/api/rooms')
-    if (!res.ok) throw new Error('Failed to fetch rooms')
+    const res = await apiFetch('/api/rooms')
     return res.json()
   },
 })
@@ -12,8 +12,7 @@ export const roomsQueryOptions = () => ({
 export const roomQueryOptions = (id: number) => ({
   queryKey: ['rooms', id] as const,
   queryFn: async (): Promise<RoomResponse> => {
-    const res = await fetch(`/api/rooms/${id}`)
-    if (!res.ok) throw new Error('Failed to fetch room')
+    const res = await apiFetch(`/api/rooms/${id}`)
     return res.json()
   },
 })
@@ -74,12 +73,11 @@ export function useCreateRoom() {
 
   return useMutation({
     mutationFn: async (data: RoomCreate) => {
-      const res = await fetch('/api/rooms', {
+      const res = await apiFetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Failed to create room')
       return res.json() as Promise<RoomResponse>
     },
     onSuccess: () => {
@@ -93,12 +91,11 @@ export function useUpdateRoom() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<RoomCreate> }) => {
-      const res = await fetch(`/api/rooms/${id}`, {
+      const res = await apiFetch(`/api/rooms/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Failed to update room')
       return res.json() as Promise<RoomResponse>
     },
     onSuccess: (_, { id }) => {
@@ -113,8 +110,7 @@ export function useDeleteRoom() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/rooms/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete room')
+      await apiFetch(`/api/rooms/${id}`, { method: 'DELETE' })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] })

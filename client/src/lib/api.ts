@@ -7,14 +7,23 @@ export class AuthError extends Error {
   }
 }
 
+let refreshInFlight: Promise<Response> | null = null
+
+function refreshOnce(): Promise<Response> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch('/api/auth/refresh-token', {
+      method: 'POST',
+      credentials: 'include',
+    }).finally(() => { refreshInFlight = null })
+  }
+  return refreshInFlight
+}
+
 export async function apiFetch(url: string, options?: RequestInit): Promise<Response> {
   const res = await fetch(url, { credentials: 'include', ...options })
 
   if (res.status === 401) {
-    const refresh = await fetch('/api/auth/refresh-token', {
-      method: 'POST',
-      credentials: 'include',
-    })
+    const refresh = await refreshOnce()
     if (!refresh.ok) {
       useAuthStore.getState().clearUser()
       throw new AuthError()
