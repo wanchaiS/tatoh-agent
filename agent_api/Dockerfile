@@ -25,6 +25,8 @@ RUN useradd -r -u 1000 -m app
 
 COPY --from=builder --chown=app:app /app /app
 
+RUN mkdir -p /app/static && chown -R app:app /app/static
+
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
