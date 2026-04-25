@@ -18,6 +18,8 @@ def validate_dates(start_date: str, end_date: str):
         raise ToolValidationError("end_date must be after start_date.")
     if start_dt < datetime.now().replace(hour=0, minute=0, second=0, microsecond=0):
         raise ToolValidationError("start_date is in the past.")
+    if (end_dt - start_dt).days > 31:
+        raise ToolValidationError("Date range is too wide. Maximum 31 days allowed.")
 
 def validate_room_names(internal_room_dict: dict[str, InternalRoom], room_names: list[str] | None = None):
     if not room_names:

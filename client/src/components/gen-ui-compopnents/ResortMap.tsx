@@ -90,7 +90,7 @@ export function ResortMap({ rooms, mapSrc, pinPositions, selectedRoomId, onSelec
               <span className={`text-[0.625rem] font-bold leading-none
                 ${isSelected ? "text-white" : "text-tropical-coral group-hover:text-white"}
               `}>
-                {room.id}
+                {room.room_name}
               </span>
             </div>
           </button>
