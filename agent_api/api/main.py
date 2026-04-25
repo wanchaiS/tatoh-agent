@@ -53,6 +53,11 @@ async def ensure_guest_id(
     return response
 
 
+@app.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 app.include_router(auth_router)
 app.include_router(conversations_router)
 app.include_router(threads_router)
