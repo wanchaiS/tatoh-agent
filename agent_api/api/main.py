@@ -5,7 +5,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+from psycopg import AsyncConnection
+from psycopg.rows import DictRow, dict_row
+from psycopg_pool import AsyncConnectionPool
 
 from agent.clients.pms_client import pms_client
 from agent.graph import graph
@@ -21,13 +23,19 @@ from db.database import DATABASE_URL, engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    serde = JsonPlusSerializer(
-        allowed_msgpack_modules=[("agent.types", "InternalRoom")]
-    )
     async with (
-        AsyncPostgresSaver.from_conn_string(DATABASE_URL, serde=serde) as checkpointer,
+        AsyncConnectionPool[AsyncConnection[DictRow]](
+            conninfo=DATABASE_URL,
+            max_size=20,
+            kwargs={
+                "autocommit": True,
+                "prepare_threshold": 0,
+                "row_factory": dict_row,
+            },
+        ) as pool,
         pms_client,
     ):
+        checkpointer = AsyncPostgresSaver(pool)
         await checkpointer.setup()
         app.state.graph = graph.compile(checkpointer=checkpointer)
         yield
