@@ -1,3 +1,5 @@
+from typing import Any
+
 from langgraph.prebuilt import ToolNode
 
 from agent.tools.exceptions import ToolValidationError
@@ -18,10 +20,10 @@ tool_node = ToolNode(tools, handle_tool_errors=tool_error_handler).with_retry(
     wait_exponential_jitter=True,
 )
 
-_model_with_tools = None
+_model_with_tools: Any = None
 
 
-def get_model_with_tools():
+def get_model_with_tools() -> Any:
     global _model_with_tools
     if _model_with_tools is None:
         from langchain_openai import ChatOpenAI

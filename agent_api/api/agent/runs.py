@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from fastapi import APIRouter, Depends
@@ -44,11 +45,11 @@ def _sse_event(event: str, data: object) -> str:
     return f"event: {event}\ndata: {json.dumps(_serialize(data), default=str)}\n\n"
 
 
-def _get_msg_type(msg) -> str:
+def _get_msg_type(msg: BaseMessage | dict[str, Any]) -> str:
     if isinstance(msg, BaseMessage):
         return msg.type
     if isinstance(msg, dict):
-        return msg.get("type", "")
+        return str(msg.get("type", ""))
     return ""
 
 
@@ -73,7 +74,7 @@ async def _maybe_set_title(db: AsyncSession, thread_id: str, text: str) -> None:
     await db.commit()
 
 
-def _has_tool_calls(msg) -> bool:
+def _has_tool_calls(msg: BaseMessage | dict[str, Any]) -> bool:
     if isinstance(msg, BaseMessage):
         return bool(getattr(msg, "tool_calls", None))
     if isinstance(msg, dict):
@@ -85,7 +86,7 @@ def _has_tool_calls(msg) -> bool:
 async def stream_run(
     thread_id: str,
     body: RunInput,
-    graph: CompiledStateGraph = Depends(get_graph),
+    graph: CompiledStateGraph[Any, Any, Any, Any] = Depends(get_graph),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     """Stream a graph run, matching LangGraph Agent Server SSE format."""
@@ -95,7 +96,7 @@ async def stream_run(
 
     human_text = _extract_human_text(body.input)
 
-    async def event_generator():
+    async def event_generator() -> AsyncGenerator[str]:
         yield _sse_event("metadata", {"run_id": run_id})
 
         try:
@@ -112,6 +113,10 @@ async def stream_run(
                 if event_type == "messages":
                     msg_chunk, metadata = data
                     # Only stream text content from the agent node
+                    if not isinstance(msg_chunk, BaseMessage) or not isinstance(
+                        metadata, dict
+                    ):
+                        continue
                     if (
                         not msg_chunk.content
                         or metadata.get("langgraph_node") != "agent"
@@ -119,6 +124,8 @@ async def stream_run(
                         continue
 
                 elif event_type == "values":
+                    if not isinstance(data, dict):
+                        continue
                     # Only send human + final ai messages (no tool-call ai) and ui
                     filtered_messages = [
                         m

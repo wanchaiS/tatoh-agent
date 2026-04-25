@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from typing import Any, cast
 
 from fastapi import HTTPException, Request
 from langgraph.graph.state import CompiledStateGraph
@@ -12,8 +13,8 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
         yield db
 
 
-def get_graph(request: Request) -> CompiledStateGraph:
-    return request.app.state.graph
+def get_graph(request: Request) -> CompiledStateGraph[Any, Any, Any, Any]:
+    return cast(CompiledStateGraph[Any, Any, Any, Any], request.app.state.graph)
 
 
 def get_guest_id(request: Request) -> str:

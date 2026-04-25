@@ -3,22 +3,25 @@ import functools
 import logging
 import random
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, ParamSpec, TypeVar, cast
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
+P = ParamSpec("P")
+T = TypeVar("T")
+
 
 def retry_with_jitter(
     max_tries: int = 3, base_delay: float = 1.0, max_delay: float = 10.0
-):
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """Decorator for retrying an async function with exponential backoff and full jitter."""
 
-    def decorator(func):
+    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            last_exception = None
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            last_exception: httpx.HTTPStatusError | httpx.RequestError | None = None
             for attempt in range(max_tries):
                 try:
                     return await func(*args, **kwargs)
@@ -73,12 +76,12 @@ async def make_request(
     url: str,
     login_cb: Callable[[], Awaitable[dict[str, str]]] | None = None,
     timeout: int = 15,
-    **kwargs,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """Functional helper to make async HTTP requests with retry logic and auto-auth."""
 
     @retry_with_jitter(max_tries=3)
-    async def _do_execute_request():
+    async def _do_execute_request() -> httpx.Response:
         if "timeout" not in kwargs:
             kwargs["timeout"] = timeout
         response = await client.request(method=method, url=url, **kwargs)
@@ -107,4 +110,4 @@ async def make_request(
     if response.status_code == 204:
         return {}
 
-    return response.json()
+    return cast(dict[str, Any], response.json())

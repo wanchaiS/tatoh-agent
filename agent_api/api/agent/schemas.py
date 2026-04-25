@@ -15,7 +15,7 @@ class ThreadResponse(BaseModel):
 
 class ThreadStateResponse(BaseModel):
     values: dict[str, Any]
-    next: tuple
+    next: tuple[Any, ...]
     checkpoint: dict[str, Any]
     created_at: str | None
     parent_checkpoint: dict[str, Any] | None

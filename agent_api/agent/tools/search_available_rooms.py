@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from typing import Any
 
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
@@ -15,6 +16,7 @@ EXPANSION_STEPS = [0, 3, 5, 7]
 
 type RoomAvailabilityResult = dict[str, set[str]]
 
+
 @tool
 async def search_available_rooms(
     runtime: ToolRuntime[AgentServiceProvider],
@@ -22,7 +24,7 @@ async def search_available_rooms(
     end_date: str,
     requested_rooms: list[str] | None = None,
     requested_room_types: list[str] | None = None,
-):
+) -> Command[Any] | str:
     """
     Search for available rooms based on the given criteria.
 
@@ -52,54 +54,89 @@ async def search_available_rooms(
 
     ### Searching process ###
     for expansion in EXPANSION_STEPS:
-
         if expansion > 0:
             today = date.today()
-            expanded_start = (datetime.strptime(start_date, "%Y-%m-%d").date() - timedelta(days=expansion))
+            expanded_start = datetime.strptime(
+                start_date, "%Y-%m-%d"
+            ).date() - timedelta(days=expansion)
             effective_start = max(expanded_start, today).strftime("%Y-%m-%d")
-            effective_end = (datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=expansion)).strftime("%Y-%m-%d")
+            effective_end = (
+                datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=expansion)
+            ).strftime("%Y-%m-%d")
         else:
             effective_start = start_date
             effective_end = end_date
-        
-        search_result = await _search_rooms(effective_start, effective_end, requested_rooms, requested_room_types, internal_room_dict, room_availability_svc)
+
+        search_result = await _search_rooms(
+            effective_start,
+            effective_end,
+            requested_rooms,
+            requested_room_types,
+            internal_room_dict,
+            room_availability_svc,
+        )
 
         if search_result:
             if expansion > 0:
                 tool_message = f"The original date range {start_date} to {end_date} had no availability, so we expanded the search window to {effective_start} to {effective_end} and found {len(search_result)} room(s)"
             else:
                 tool_message = f"Found {len(search_result)} room(s) between {effective_start} and {effective_end}"
-            return Command(update={
-                "messages": [ToolMessage(
-                    content=tool_message,
-                    tool_call_id=runtime.tool_call_id,
-                )],
-                "pending_render_search_results": {"append": [search_result]},
-                "pending_search_range": {"start": effective_start, "end": effective_end},
-            })
-
+            return Command(
+                update={
+                    "messages": [
+                        ToolMessage(
+                            content=tool_message,
+                            tool_call_id=runtime.tool_call_id,
+                        )
+                    ],
+                    "pending_render_search_results": {"append": [search_result]},
+                    "pending_search_range": {
+                        "start": effective_start,
+                        "end": effective_end,
+                    },
+                }
+            )
 
     # Exhausted all expansion steps — no rooms found at all
     return f"No rooms found between {start_date} and {end_date}"
 
+
 ######################## Validators ################################
 
-def _validate_room_types( internal_room_dict: dict[str, InternalRoom],room_types: list[str] | None = None):
+
+def _validate_room_types(
+    internal_room_dict: dict[str, InternalRoom], room_types: list[str] | None = None
+) -> None:
     if not room_types:
         return None
 
     invalid_types = []
     for room_type in room_types:
-        if room_type.lower() not in [room["room_type"].lower() for room in internal_room_dict.values()]:
+        if room_type.lower() not in [
+            room["room_type"].lower() for room in internal_room_dict.values()
+        ]:
             invalid_types.append(room_type)
-    
+
     if invalid_types:
-        valid = ", ".join(set(room["room_type"] for room in internal_room_dict.values()))
-        raise ToolValidationError(f"Room type(s) {', '.join(invalid_types)} not found. Available room types: {valid}")
+        valid = ", ".join(
+            set(room["room_type"] for room in internal_room_dict.values())
+        )
+        raise ToolValidationError(
+            f"Room type(s) {', '.join(invalid_types)} not found. Available room types: {valid}"
+        )
+
 
 ######################## Helpers ################################
 
-async def _search_rooms(start_date: str, end_date: str, requested_rooms: list[str] | None, requested_room_types: list[str] | None, internal_room_dict: dict[str, InternalRoom], availability_svc: RoomAvailabilityService) -> RoomAvailabilityResult:
+
+async def _search_rooms(
+    start_date: str,
+    end_date: str,
+    requested_rooms: list[str] | None,
+    requested_room_types: list[str] | None,
+    internal_room_dict: dict[str, InternalRoom],
+    availability_svc: RoomAvailabilityService,
+) -> RoomAvailabilityResult:
     """Search rooms from PMS. Returns raw room names + available dates."""
     room_availability = await availability_svc.get_availability(start_date, end_date)
 
@@ -111,7 +148,7 @@ async def _search_rooms(start_date: str, end_date: str, requested_rooms: list[st
 
         room_no_lower = room_no.lower()
         room_type_lower = room_data["room_type_name"].lower()
-        
+
         # room dont exist in the system
         if room_no_lower not in internal_room_dict:
             continue

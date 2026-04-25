@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
@@ -19,7 +20,7 @@ from db.database import DATABASE_URL, engine
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     serde = JsonPlusSerializer(
         allowed_msgpack_modules=[("agent.types", "InternalRoom")]
     )
@@ -37,7 +38,9 @@ app = FastAPI(title="Tatoh Agent Server", lifespan=lifespan)
 
 
 @app.middleware("http")
-async def ensure_guest_id(request: Request, call_next):
+async def ensure_guest_id(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     response: Response = await call_next(request)
     if not request.cookies.get("guest_id"):
         response.set_cookie(

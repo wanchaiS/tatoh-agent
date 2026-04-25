@@ -1,3 +1,5 @@
+from typing import Any
+
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
@@ -14,7 +16,7 @@ async def select_rooms(
     check_in_date: str,
     check_out_date: str,
     runtime: ToolRuntime[AgentServiceProvider],
-) -> Command | str:
+) -> Command[Any] | str:
     """
     Select a room for booking. Use it when user wants to select a room
     Args:

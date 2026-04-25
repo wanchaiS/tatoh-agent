@@ -1,3 +1,5 @@
+from typing import Any
+
 from langchain.tools import ToolRuntime
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
@@ -10,7 +12,7 @@ from agent.tools.common_validators import validate_room_names
 @tool
 async def deselect_rooms(
     room_name: str, runtime: ToolRuntime[AgentServiceProvider]
-) -> Command | str:
+) -> Command[Any] | str:
     """
     Deselect a room for booking. Use it when user wants to deselect a room
     Args:

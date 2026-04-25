@@ -69,7 +69,7 @@ class PmsClient:
     async def aclose(self) -> None:
         await self.http_client.aclose()
 
-    async def __aenter__(self) -> "PmsClient":
+    async def __aenter__(self) -> PmsClient:
         return self
 
     async def __aexit__(self, *exc: object) -> None:
